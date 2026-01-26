@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top 10 Cities - France Property Prices</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 20px 60px 20px;
+            overflow-y: auto;  
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 32px;
+        }
+        
+        .header p {
+            margin: 0;
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+        
+        .nav-links {
+            margin-top: 20px;
+        }
+        
+        .nav-links a {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-right: 10px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background: #2980b9;
+        }
+        
+        .city-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .city-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        
+        .city-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        
+        .city-name {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .city-rank {
+            background: #3498db;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .property-types {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .property-type {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .property-type.maison {
+            border-left-color: #e74c3c;
+        }
+        
+        .property-type.appartement {
+            border-left-color: #3498db;
+        }
+        
+        .type-name {
+            font-size: 14px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .price-main {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        
+        .price-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #95a5a6;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #7f8c8d;
+            font-size: 18px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .stats-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .stats-summary h3 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            opacity: 0.95;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat-item {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 Top 10 Cities by Transaction Volume</h1>
+            <p>Market price per square meter by property type - Based on 2023 DVF data</p>
+            <div class="nav-links">
+                <a href="/">← Back to Map</a>
+                <a href="/docs" target="_blank">API Documentation</a>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading city data...</p>
+        </div>
+        
+        <div id="stats-summary" style="display: none;"></div>
+        <div id="cities-container"></div>
+    </div>
+    
+    <script>
+        // Format currency
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('fr-FR', {
+                style: 'currency',
+                currency: 'EUR',
+                maximumFractionDigits: 0
+            }).format(num);
+        }
+        
+        // Format number
+        function formatNumber(num) {
+            return new Intl.NumberFormat('fr-FR').format(num);
+        }
+        
+        // Load and display data
+        async function loadCities() {
+            try {
+                const response = await fetch('/api/top-cities?limit=10');
+                const cities = await response.json();
+                
+                document.getElementById('loading').style.display = 'none';
+                
+                // Calculate summary stats
+                let totalTransactions = 0;
+                let priceSum = 0;
+                let priceCount = 0;
+                
+                cities.forEach(city => {
+                    city.property_types.forEach(pt => {
+                        totalTransactions += pt.transaction_count;
+                        priceSum += pt.median_price;
+                        priceCount++;
+                    });
+                });
+                
+                const avgPrice = priceSum / priceCount;
+                
+                // Display summary
+                document.getElementById('stats-summary').innerHTML = `
+                    <h3>Summary Statistics</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value">${cities.length}</div>
+                            <div class="stat-label">Top Cities</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${formatNumber(totalTransactions)}</div>
+                            <div class="stat-label">Total Transactions</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${formatCurrency(avgPrice)}/m²</div>
+                            <div class="stat-label">Average Price</div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('stats-summary').style.display = 'block';
+                
+                // Display cities
+                const container = document.getElementById('cities-container');
+                
+                cities.forEach((city, index) => {
+                    const cityCard = document.createElement('div');
+                    cityCard.className = 'city-card';
+                    
+                    const propertyTypesHTML = city.property_types.map(pt => {
+                        const typeClass = pt.type.toLowerCase() === 'maison' ? 'maison' : 'appartement';
+                        const icon = pt.type.toLowerCase() === 'maison' ? '🏠' : '🏢';
+                        
+                        return `
+                            <div class="property-type ${typeClass}">
+                                <div class="type-name">${icon} ${pt.type}</div>
+                                <div class="price-main">${formatCurrency(pt.median_price)}/m²</div>
+                                <div class="price-details">
+                                    <span>Avg: ${formatCurrency(pt.avg_price)}/m²</span>
+                                    <span>${formatNumber(pt.transaction_count)} sales</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    cityCard.innerHTML = `
+                        <div class="city-header">
+                            <h2 class="city-name">${city.city}</h2>
+                            <div class="city-rank">#${index + 1}</div>
+                        </div>
+                        <div class="property-types">
+                            ${propertyTypesHTML}
+                        </div>
+                    `;
+                    
+                    container.appendChild(cityCard);
+                });
+                
+            } catch (error) {
+                document.getElementById('loading').innerHTML = `
+                    <p style="color: #e74c3c;">❌ Error loading data: ${error.message}</p>
+                    <p><a href="/" style="color: #3498db;">Return to Map</a></p>
+                `;
+            }
+        }
+        
+        // Load on page load
+        loadCities();
+    </script>
+</body>
+</html>

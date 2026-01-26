@@ -1,0 +1,20 @@
+# FastAPI and server
+fastapi==0.108.0
+uvicorn[standard]==0.25.0
+python-multipart==0.0.6
+
+# Database
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.23
+geoalchemy2==0.14.2
+asyncpg==0.29.0
+
+# Environment & Config
+python-dotenv==1.0.0
+
+# Templating
+jinja2==3.1.2
+
+# Validation
+pydantic==2.5.3
+pydantic-settings==2.1.0

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    
+    <!-- Mapbox GL JS -->
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js'></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- Pass Mapbox token to JavaScript -->
+    <script>
+        const MAPBOX_TOKEN = '{{ mapbox_token }}';
+    </script>
+</head>
+<body>
+    <!-- Info Panel -->
+    <div class="info-panel">
+        <div class="panel-header">
+            <h1>🏠 France Property Prices</h1>
+            <p class="subtitle">Residential real estate market analysis (2023)</p>
+        </div>
+        
+        <div class="panel-content">
+            <div class="info-row">
+                <span class="label">Current Level:</span>
+                <span class="value" id="current-level">Region</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="label">Zoom:</span>
+                <span class="value" id="current-zoom">6.0</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="label">Regions Shown:</span>
+                <span class="value" id="region-count">0</span>
+            </div>
+        </div>
+
+        <div class="panel-actions">
+            <button class="btn btn-primary" onclick="resetView()">Reset View</button>
+            <a href="/top-cities" class="btn btn-secondary">Top Cities</a>
+            <a href="/docs" target="_blank" class="btn btn-secondary" style="font-size: 12px;">API</a>
+        </div>
+        
+    </div>
+    
+    <!-- Legend -->
+    <div class="legend">
+        <h3>Price per m² (€)</h3>
+        <div class="legend-scale" id="legend-scale">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fee5d9;"></div>
+                <span id="range-1">< €2,000</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fcae91;"></div>
+                <span id="range-2">€2,000 - €3,000</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fb6a4a;"></div>
+                <span id="range-3">€3,000 - €4,500</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #de2d26;"></div>
+                <span id="range-4">€4,500 - €6,500</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #a50f15;"></div>
+                <span id="range-5">> €6,500</span>
+            </div>
+        </div>
+        <p class="legend-note" id="legend-note" style="margin-top: 10px; font-size: 11px; color: #7f8c8d;"></p>
+    </div>
+    
+    <!-- Loading Indicator -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading data...</p>
+    </div>
+    
+    <!-- Map Container -->
+    <div id="map"></div>
+    
+    <!-- Custom JavaScript -->
+    <script src="/static/js/map.js"></script>
+</body>
+</html>

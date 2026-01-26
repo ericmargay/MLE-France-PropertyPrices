@@ -1,0 +1,33 @@
+# Data files
+data/raw/*.csv
+data/raw/*.csv.gz
+data/processed/*.geojson
+data/geometries/*.geojson
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+venv/
+env/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
