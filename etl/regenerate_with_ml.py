@@ -7,6 +7,7 @@ This script implements hierarchical aggregation where:
 3. Departments use region as prior
 4. Communes use department as prior
 5. Postcodes use commune as prior
+6. Parcels use commune as prior (with real building footprints)
 
 This ensures estimates are smoothed appropriately for sparse areas.
 
@@ -17,7 +18,8 @@ import pandas as pd
 import geopandas as gpd
 import numpy as np
 from sqlalchemy import create_engine, text
-from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon
+from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon, LineString
+from shapely import affinity
 from datetime import datetime
 import os
 import time
@@ -30,11 +32,21 @@ from spatial_aggregation import (
     download_postcode_boundaries,
     save_aggregates_to_postgres
 )
+from cadastre_downloader import (
+    download_all_buildings,
+    load_cached_buildings,
+    get_building_for_point,
+    ALL_DEPARTMENTS
+)
 
 # Database connection
 DATABASE_URL = os.getenv('DATABASE_URL', 
                          'postgresql://admin:changeme@postgres:5432/property_prices')
 engine = create_engine(DATABASE_URL)
+
+# Configuration
+CADASTRE_CACHE_DIR = '/app/data/cadastre'
+MAX_PARCELS = 500000  # Limit for memory management
 
 
 def load_transactions():
@@ -179,7 +191,7 @@ def aggregate_postcodes(transactions_gdf, communes_gdf, ml_model, commune_estima
     # Download official boundaries
     postcode_boundaries = download_postcode_boundaries()
     
-    if postcode_boundaries is not None:
+    if postcode_boundaries is not None and len(postcode_boundaries) > 0:
         print(f"  Using {len(postcode_boundaries):,} official postcode polygons")
         postcode_geom_lookup = {}
         for _, row in postcode_boundaries.iterrows():
@@ -187,9 +199,11 @@ def aggregate_postcodes(transactions_gdf, communes_gdf, ml_model, commune_estima
             if pc:
                 postcode_geom_lookup[pc] = row.geometry
     else:
+        print("  ⚠️  Official boundaries not available")
         postcode_geom_lookup = {}
     
-    # Prepare transactions
+    # Format postcodes
+    print("Formatting postcodes...")
     transactions_gdf = transactions_gdf.copy()
     transactions_gdf['code_postal'] = transactions_gdf['code_postal'].apply(format_postcode)
     
@@ -226,10 +240,13 @@ def aggregate_postcodes(transactions_gdf, communes_gdf, ml_model, commune_estima
         if postcode in postcode_geom_lookup:
             geometry = postcode_geom_lookup[postcode]
         else:
+            # Fallback: convex hull
             try:
                 points = group.geometry.tolist()
                 if len(points) >= 3:
                     geometry = MultiPoint(points).convex_hull.buffer(0.0005)
+                elif len(points) == 2:
+                    geometry = LineString(points).buffer(0.002)
                 else:
                     geometry = points[0].buffer(0.003)
             except:
@@ -279,9 +296,198 @@ def aggregate_postcodes(transactions_gdf, communes_gdf, ml_model, commune_estima
     return result_gdf
 
 
+def aggregate_parcels_ml(transactions_gdf, ml_model, commune_estimates, 
+                         max_parcels=MAX_PARCELS):
+    """
+    Aggregate by parcel using cadastre building footprints and ML predictions.
+    
+    Downloads real building footprints from cadastre.data.gouv.fr and matches
+    them to transaction locations.
+    """
+    print(f"\n{'='*60}")
+    print(f"Aggregating: PARCEL (Building Footprints + ML)")
+    print(f"{'='*60}")
+    
+    # Filter transactions with valid parcel IDs
+    print("Filtering transactions with valid parcel IDs...")
+    parcels_df = transactions_gdf[transactions_gdf['id_parcelle'].notna()].copy()
+    parcels_df['id_parcelle'] = parcels_df['id_parcelle'].astype(str).str.strip()
+    parcels_df = parcels_df[parcels_df['id_parcelle'] != '']
+    parcels_df = parcels_df[parcels_df['id_parcelle'] != 'nan']
+    
+    print(f"  Transactions with parcel ID: {len(parcels_df):,}")
+    
+    # Extract department codes
+    parcels_df['dept_code'] = parcels_df['id_parcelle'].str[:2]
+    
+    departments = parcels_df['dept_code'].unique()
+    departments = [d for d in departments if d and len(d) >= 2]
+    print(f"  Departments with parcels: {len(departments)}")
+    
+    # Group by parcel and limit if needed
+    parcel_groups = parcels_df.groupby('id_parcelle')
+    total_parcels = len(parcel_groups)
+    print(f"  Unique parcels: {total_parcels:,}")
+    
+    if total_parcels > max_parcels:
+        print(f"  ⚠️  Limiting to top {max_parcels:,} parcels by transaction count...")
+        parcel_counts = parcel_groups.size().sort_values(ascending=False).head(max_parcels)
+        selected_parcels = parcel_counts.index.tolist()
+        parcels_df = parcels_df[parcels_df['id_parcelle'].isin(selected_parcels)]
+        departments = parcels_df['dept_code'].unique()
+        departments = [d for d in departments if d and len(d) >= 2]
+        parcel_groups = parcels_df.groupby('id_parcelle')
+    
+    # Download cadastre building data
+    print(f"\n" + "-"*60)
+    print("DOWNLOADING CADASTRE BUILDING DATA")
+    print("-"*60)
+    
+    # First try to load from cache
+    cadastre_buildings = load_cached_buildings(CADASTRE_CACHE_DIR, departments)
+    cached_count = len(cadastre_buildings)
+    
+    if cached_count < len(departments):
+        # Download missing departments
+        missing_depts = [d for d in departments if d not in cadastre_buildings]
+        print(f"  Cached: {cached_count} departments")
+        print(f"  Need to download: {len(missing_depts)} departments")
+        
+        new_buildings = download_all_buildings(
+            departments=missing_depts,
+            cache_dir=CADASTRE_CACHE_DIR,
+            max_workers=4
+        )
+        
+        cadastre_buildings.update(new_buildings)
+    else:
+        print(f"  ✓ All {len(departments)} departments loaded from cache")
+    
+    total_buildings = sum(len(gdf) for gdf in cadastre_buildings.values())
+    print(f"\n  Total buildings loaded: {total_buildings:,}")
+    
+    # Process parcels
+    print(f"\n" + "-"*60)
+    print(f"PROCESSING {len(parcel_groups):,} PARCELS")
+    print("-"*60)
+    
+    aggregated_data = []
+    with_real_building = 0
+    with_estimated = 0
+    skipped = 0
+    
+    parcel_list = list(parcel_groups)
+    
+    for idx, (parcel_id, group) in enumerate(parcel_list):
+        if (idx + 1) % 25000 == 0:
+            pct = (idx + 1) / len(parcel_list) * 100
+            print(f"  ... {idx + 1:,}/{len(parcel_list):,} ({pct:.1f}%) | "
+                  f"Real: {with_real_building:,} | Est: {with_estimated:,}")
+        
+        if len(group) == 0:
+            skipped += 1
+            continue
+        
+        # Get department code
+        dept = parcel_id[:2] if len(parcel_id) >= 2 else None
+        
+        # Try to find real building footprint
+        geometry = None
+        
+        if dept and dept in cadastre_buildings:
+            buildings_gdf = cadastre_buildings[dept]
+            
+            # Get transaction point
+            tx_point = group.geometry.iloc[0]
+            
+            # Find building containing or near this point
+            geometry = get_building_for_point(tx_point, buildings_gdf)
+            
+            if geometry is not None:
+                with_real_building += 1
+        
+        # Fallback: create estimated footprint
+        if geometry is None:
+            try:
+                if len(group) == 1:
+                    point = group.geometry.iloc[0]
+                    # Small rectangular building footprint (~12m x 12m)
+                    geometry = point.buffer(0.00012, cap_style=3)
+                else:
+                    points = group.geometry.tolist()
+                    multi_point = MultiPoint(points)
+                    hull = multi_point.convex_hull
+                    
+                    if isinstance(hull, Point):
+                        geometry = hull.buffer(0.00012, cap_style=3)
+                    elif isinstance(hull, LineString):
+                        geometry = hull.buffer(0.00006)
+                    elif isinstance(hull, Polygon):
+                        centroid = hull.centroid
+                        geometry = affinity.scale(hull, xfact=1.15, yfact=1.15, origin=centroid)
+                    else:
+                        geometry = hull
+                
+                if isinstance(geometry, MultiPolygon):
+                    geometry = max(geometry.geoms, key=lambda g: g.area)
+                
+                with_estimated += 1
+                
+            except Exception:
+                skipped += 1
+                continue
+        
+        if geometry is None or geometry.is_empty:
+            skipped += 1
+            continue
+        
+        # Get parent (commune) estimate for hierarchical smoothing
+        commune_code = group['code_commune'].iloc[0] if 'code_commune' in group.columns else None
+        parent_estimate = None
+        
+        if commune_code and commune_code in commune_estimates:
+            parent_estimate = commune_estimates[commune_code]
+        
+        if parent_estimate is None:
+            parent_estimate = ml_model.global_median_price
+        
+        # ML prediction
+        centroid = geometry.centroid
+        stats = ml_model.predict_zone(
+            group,
+            zone_centroid=(centroid.x, centroid.y),
+            parent_estimate=parent_estimate
+        )
+        
+        aggregated_data.append({
+            'level': 'parcel',
+            'code': parcel_id,
+            'name': f"Parcel {parcel_id}",
+            'geometry': geometry,
+            **stats
+        })
+    
+    result_gdf = gpd.GeoDataFrame(aggregated_data, crs=transactions_gdf.crs)
+    
+    print(f"\n{'='*60}")
+    print(f"✓ PARCEL AGGREGATION COMPLETE")
+    print(f"{'='*60}")
+    print(f"  Total parcels: {len(result_gdf):,}")
+    
+    if len(result_gdf) > 0:
+        pct_real = with_real_building / len(result_gdf) * 100
+        print(f"  With REAL building footprints: {with_real_building:,} ({pct_real:.1f}%)")
+        print(f"  With estimated footprints: {with_estimated:,} ({100-pct_real:.1f}%)")
+        print(f"  Skipped: {skipped:,}")
+        print(f"  Price range: €{result_gdf['predicted_price'].min():,.0f} - €{result_gdf['predicted_price'].max():,.0f}/m²")
+        print(f"  Avg confidence: {result_gdf['confidence_score'].mean():.0f}/100")
+    
+    return result_gdf
+
+
 def main():
     print("\n" + "="*70)
-    print("   ROBUST ML PRICE AGGREGATION")
+    print("   ROBUST ML PRICE AGGREGATION (WITH PARCELS)")
     print("="*70)
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Prediction target: {PREDICTION_DATE.strftime('%Y-%m-%d')}")
@@ -418,6 +624,13 @@ def main():
     )
     save_aggregates_to_postgres(postcode_gdf, engine, if_exists='append')
     
+    # --- PARCELS ---
+    parcel_gdf = aggregate_parcels_ml(
+        transactions_gdf, ml_model, commune_estimates,
+        max_parcels=MAX_PARCELS
+    )
+    save_aggregates_to_postgres(parcel_gdf, engine, if_exists='append')
+    
     # =================================================================
     # VERIFICATION
     # =================================================================
@@ -455,7 +668,7 @@ def main():
     elapsed = time.time() - start_time
     
     print("\n" + "="*70)
-    print("✓ ML AGGREGATION COMPLETE")
+    print("✓ ML AGGREGATION COMPLETE (ALL LEVELS)")
     print("="*70)
     print(f"Total time: {elapsed/60:.1f} minutes")
     print(f"Model saved: {model_path}")
