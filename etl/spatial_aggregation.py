@@ -2,9 +2,57 @@
 Spatial aggregation functions for property price analysis
 WITH CONFIDENCE SCORING based on volume, volatility, and freshness
 
-IMPROVEMENTS:
-1. Postcodes: Uses transaction clustering for more granular divisions
-2. Parcels: Downloads and uses actual French cadastre building footprints
+PRICE ESTIMATION METHODOLOGY
+============================
+This module estimates current property prices from historical transaction data
+using the following approach:
+
+1. TIME-WEIGHTED AVERAGE (Recency Weighting)
+   - Recent transactions are weighted more heavily than older ones
+   - Uses exponential decay: weight = exp(-days_since_transaction / tau)
+   - Tau calibrated so half_life (180 days) gives 50% weight
+   - Weights calculated relative to LAST transaction date in dataset,
+     not the current date, to properly weight within the data period
+
+2. INFLATION ADJUSTMENT (Market Trend Correction)
+   - Historical prices are adjusted to present-day values
+   - Uses French real estate price index (based on INSEE Notaires indices)
+   - Annual adjustment rate: ~1.5% national average (configurable)
+   - Applied per-transaction before aggregation
+
+3. CONFIDENCE SCORING (Estimate Reliability: 0-100)
+   Three components:
+   
+   a) VOLUME SCORE (0-40 points)
+      - More transactions = more reliable estimate
+      - >=100: 40 | >=50: 35 | >=30: 30 | >=20: 25 | >=10: 15 | >=5: 8 | <5: 5
+   
+   b) VOLATILITY SCORE (0-40 points)  
+      - Lower price variance = more consistent market = higher confidence
+      - Based on Coefficient of Variation (CV = std_dev / median)
+      - CV <10%: 40 | <15%: 35 | <20%: 30 | <25%: 25 | <35%: 18 | <50%: 10 | >=50%: 5
+   
+   c) DATA RECENCY SCORE (0-20 points)
+      - More recent data = more relevant to current market
+      - Calculated relative to data period end (not current date)
+      - <=30d: 20 | <=60d: 18 | <=90d: 15 | <=120d: 12 | <=180d: 10 | <=270d: 6 | <=365d: 4 | >365d: 2
+
+4. CONFIDENCE INTERVAL ADJUSTMENT
+   - Base interval: Interquartile Range (IQR = Q75 - Q25)
+   - Wider intervals for lower confidence estimates
+   - Multipliers: Very High (1.0x) | High (1.15x) | Medium (1.35x) | Low (1.7x) | Very Low (2.2x)
+
+5. OUTPUT METRICS
+   - median_price: Inflation-adjusted median price per m²
+   - weighted_price: Time-weighted and inflation-adjusted average
+   - lower_bound / upper_bound: Confidence-adjusted price range
+   - confidence_score: 0-100 reliability score
+   - estimate_quality: Human-readable quality label
+
+REFERENCES
+----------
+- INSEE Notaires price indices: https://www.insee.fr/fr/statistiques/serie/001769365
+- French real estate market reports: https://www.notaires.fr/fr/immobilier-fiscalite
 """
 import pandas as pd
 import geopandas as gpd
@@ -21,8 +69,38 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
+# =============================================================================
+# CONFIGURATION: Market Adjustment Parameters
+# =============================================================================
+
+# Data reference date (end of transaction data period)
+DATA_REFERENCE_DATE = datetime(2023, 12, 31)
+
+# Current estimation date (target date for price prediction)
+ESTIMATION_DATE = datetime(2025, 1, 1)
+
+# Annual price appreciation rate for French real estate
+# Based on INSEE Notaires indices - can be updated with actual data
+# French market 2023-2024 was relatively flat, slight recovery 2024-2025
+ANNUAL_APPRECIATION_RATE = 0.015  # 1.5% average annual appreciation
+
+# Time-weighting half-life in days
+# A transaction from 180 days before the last transaction has 50% weight
+DECAY_HALF_LIFE_DAYS = 180
+
+
 def format_postcode(x):
-    """Convert postcode to 5-digit string with leading zeros."""
+    """
+    Convert postcode to 5-digit string with leading zeros.
+    
+    French postcodes are always 5 digits (e.g., '01000', '75001').
+    CSV import may read them as floats, losing leading zeros.
+    
+    Examples:
+        1630.0  -> '01630'
+        75001   -> '75001'
+        '1234'  -> '01234'
+    """
     if pd.isna(x) or str(x).strip() == '':
         return ''
     try:
@@ -35,25 +113,163 @@ def format_postcode(x):
         return cleaned.zfill(5)
 
 
-def calculate_weighted_price(group, recency_weight=True, decay_days=365):
-    """Calculate time-weighted average price"""
+def get_inflation_adjustment_factor(transaction_date):
+    """
+    Calculate inflation adjustment factor to bring historical price to present value.
+    
+    Methodology:
+    ------------
+    Uses compound growth formula: factor = (1 + annual_rate) ^ years_elapsed
+    
+    Parameters:
+    -----------
+    transaction_date : datetime or str
+        Date of the original transaction
+    
+    Returns:
+    --------
+    float : Multiplicative factor to adjust price to present value
+    
+    Example:
+    --------
+    A transaction from Jan 2023 with 1.5% annual rate:
+    - Years elapsed to Jan 2025: 2.0 years
+    - Factor: (1.015)^2 = 1.0302
+    - €5000/m² in 2023 -> €5151/m² in 2025
+    """
+    if pd.isna(transaction_date):
+        return 1.0
+    
+    # Convert to datetime if needed
+    if isinstance(transaction_date, str):
+        transaction_date = pd.to_datetime(transaction_date)
+    
+    # Calculate years elapsed
+    days_elapsed = (ESTIMATION_DATE - transaction_date).days
+    years_elapsed = days_elapsed / 365.25
+    
+    # Only forward adjustment (don't deflate)
+    if years_elapsed < 0:
+        years_elapsed = 0
+    
+    # Compound growth formula
+    adjustment_factor = (1 + ANNUAL_APPRECIATION_RATE) ** years_elapsed
+    
+    return adjustment_factor
+
+
+def calculate_weighted_price(group, apply_inflation=True):
+    """
+    Calculate time-weighted average price with optional inflation adjustment.
+    
+    Methodology:
+    ------------
+    1. INFLATION ADJUSTMENT (if enabled):
+       Each transaction price is adjusted to present value using the 
+       compound growth formula based on time elapsed since transaction.
+    
+    2. TIME-DECAY WEIGHTING:
+       More recent transactions receive higher weights using exponential decay:
+       
+           weight_i = exp(-days_old_i / tau)
+       
+       where tau is calibrated so that a transaction from DECAY_HALF_LIFE_DAYS
+       ago has 50% weight:  tau = DECAY_HALF_LIFE_DAYS / ln(2)
+       
+       "Days old" is calculated relative to the MOST RECENT transaction in the
+       group, not the current date. This ensures proper relative weighting
+       within the data period.
+    
+    3. WEIGHTED AVERAGE:
+       Final price = sum(price_i * weight_i) / sum(weight_i)
+    
+    Parameters:
+    -----------
+    group : pd.DataFrame
+        Transaction data with 'price_per_m2' and 'date_mutation' columns
+    apply_inflation : bool
+        Whether to adjust prices for inflation (default: True)
+    
+    Returns:
+    --------
+    float : Weighted average price per m² (inflation-adjusted if enabled)
+    
+    Statistical Note:
+    -----------------
+    The exponential decay function was chosen because:
+    - It's widely used in time-series weighting (e.g., EMA in finance)
+    - It has a clear interpretation (half-life parameter)
+    - It smoothly decreases without sudden cutoffs
+    - It's computationally efficient
+    """
     if len(group) == 0:
         return np.nan
     
-    if not recency_weight:
-        return group['price_per_m2'].mean()
-    
-    now = datetime.now()
     group = group.copy()
-    group['days_old'] = (now - pd.to_datetime(group['date_mutation'])).dt.days
-    weights = np.exp(-group['days_old'] / decay_days)
-    weighted_price = np.average(group['price_per_m2'], weights=weights)
+    
+    # Step 1: Apply inflation adjustment to each transaction
+    if apply_inflation:
+        group['adjusted_price'] = group.apply(
+            lambda row: row['price_per_m2'] * get_inflation_adjustment_factor(row['date_mutation']),
+            axis=1
+        )
+        price_col = 'adjusted_price'
+    else:
+        price_col = 'price_per_m2'
+    
+    # Step 2: Calculate days old relative to most recent transaction
+    # This ensures proper relative weighting within the data period
+    most_recent = pd.to_datetime(group['date_mutation']).max()
+    group['days_old'] = (most_recent - pd.to_datetime(group['date_mutation'])).dt.days
+    
+    # Step 3: Calculate exponential decay weights
+    # tau = half_life / ln(2), so that weight = 0.5 when days_old = half_life
+    tau = DECAY_HALF_LIFE_DAYS / np.log(2)
+    weights = np.exp(-group['days_old'] / tau)
+    
+    # Step 4: Calculate weighted average
+    weighted_price = np.average(group[price_col], weights=weights)
     
     return weighted_price
 
 
 def calculate_price_statistics(group):
-    """Calculate comprehensive price statistics with confidence scoring"""
+    """
+    Calculate comprehensive price statistics with confidence scoring.
+    
+    This is the main price estimation function that produces all metrics
+    needed for the visualization and analysis.
+    
+    Methodology:
+    ------------
+    See module docstring for full methodology description.
+    
+    Parameters:
+    -----------
+    group : pd.DataFrame
+        Transaction data with 'price_per_m2' and 'date_mutation' columns
+    
+    Returns:
+    --------
+    dict : Complete set of price metrics:
+        - median_price: Inflation-adjusted median (EUR/m²)
+        - weighted_price: Time-weighted, inflation-adjusted average (EUR/m²)
+        - std_dev: Standard deviation of adjusted prices
+        - transaction_count: Number of transactions
+        - lower_bound: Lower confidence bound (EUR/m²)
+        - upper_bound: Upper confidence bound (EUR/m²)
+        - last_transaction_date: Date of most recent transaction
+        - confidence_score: 0-100 reliability score
+        - estimate_quality: 'Very High', 'High', 'Medium', 'Low', 'Very Low'
+    
+    Confidence Score Interpretation:
+    --------------------------------
+    85-100: Very High - Large sample, low variance, recent data
+    70-84:  High      - Good reliability for most decisions
+    55-69:  Medium    - Usable estimate with some uncertainty  
+    35-54:  Low       - Use with caution, consider nearby areas
+    0-34:   Very Low  - Indicative only, high uncertainty
+    """
     if len(group) == 0:
         return {
             'median_price': np.nan,
@@ -67,20 +283,46 @@ def calculate_price_statistics(group):
             'estimate_quality': 'No Data'
         }
     
-    median_price = group['price_per_m2'].median()
-    std_dev = group['price_per_m2'].std()
-    weighted_price = calculate_weighted_price(group, recency_weight=True)
+    group = group.copy()
     
-    q25 = group['price_per_m2'].quantile(0.25)
-    q75 = group['price_per_m2'].quantile(0.75)
+    # =================================================================
+    # STEP 1: Adjust all prices for inflation
+    # =================================================================
+    group['adjusted_price'] = group.apply(
+        lambda row: row['price_per_m2'] * get_inflation_adjustment_factor(row['date_mutation']),
+        axis=1
+    )
     
+    # =================================================================
+    # STEP 2: Calculate basic statistics on adjusted prices
+    # =================================================================
+    median_price = group['adjusted_price'].median()
+    std_dev = group['adjusted_price'].std()
+    
+    # Time-weighted average
+    weighted_price = calculate_weighted_price(group, apply_inflation=True)
+    
+    # Quartiles for confidence interval
+    q25 = group['adjusted_price'].quantile(0.25)
+    q75 = group['adjusted_price'].quantile(0.75)
+    
+    # Transaction metadata
     transaction_count = len(group)
-    last_date = group['date_mutation'].max()
+    last_date = pd.to_datetime(group['date_mutation']).max()
     
-    days_since_last = (datetime.now() - pd.to_datetime(last_date)).days if pd.notna(last_date) else 999
+    # =================================================================
+    # STEP 3: Calculate confidence score components
+    # =================================================================
+    
+    # Days since last transaction (relative to data reference date)
+    # This gives a fair freshness score within the data period
+    days_since_last = (DATA_REFERENCE_DATE - last_date).days if pd.notna(last_date) else 999
+    days_since_last = max(0, days_since_last)
+    
+    # Coefficient of variation (normalized volatility measure)
     cv = (std_dev / median_price) if median_price > 0 and not np.isnan(std_dev) else 1.0
     
-    # Volume score (0-40)
+    # --- VOLUME SCORE (0-40 points) ---
     if transaction_count >= 100:
         volume_score = 40
     elif transaction_count >= 50:
@@ -96,7 +338,7 @@ def calculate_price_statistics(group):
     else:
         volume_score = 5
     
-    # Volatility score (0-40)
+    # --- VOLATILITY SCORE (0-40 points) ---
     if cv < 0.10:
         volatility_score = 40
     elif cv < 0.15:
@@ -112,7 +354,7 @@ def calculate_price_statistics(group):
     else:
         volatility_score = 5
     
-    # Freshness score (0-20)
+    # --- FRESHNESS SCORE (0-20 points) ---
     if days_since_last <= 30:
         freshness_score = 20
     elif days_since_last <= 60:
@@ -122,14 +364,18 @@ def calculate_price_statistics(group):
     elif days_since_last <= 120:
         freshness_score = 12
     elif days_since_last <= 180:
-        freshness_score = 8
+        freshness_score = 10
     elif days_since_last <= 270:
-        freshness_score = 5
+        freshness_score = 6
+    elif days_since_last <= 365:
+        freshness_score = 4
     else:
         freshness_score = 2
     
+    # --- TOTAL CONFIDENCE SCORE ---
     confidence_score = int(volume_score + volatility_score + freshness_score)
     
+    # --- QUALITY LABEL ---
     if confidence_score >= 85:
         quality = 'Very High'
     elif confidence_score >= 70:
@@ -141,9 +387,14 @@ def calculate_price_statistics(group):
     else:
         quality = 'Very Low'
     
-    interval_width = q75 - q25 if not np.isnan(q75 - q25) else 0
-    median_est = median_price
+    # =================================================================
+    # STEP 4: Calculate confidence-adjusted price bounds
+    # =================================================================
     
+    # Base interval: Interquartile Range
+    iqr = q75 - q25 if not np.isnan(q75 - q25) else median_price * 0.2
+    
+    # Widen interval for lower confidence estimates
     if confidence_score >= 85:
         multiplier = 1.0
     elif confidence_score >= 70:
@@ -155,22 +406,27 @@ def calculate_price_statistics(group):
     else:
         multiplier = 2.2
     
-    adjusted_width = interval_width * multiplier
-    min_width = median_est * 0.05
+    adjusted_width = iqr * multiplier
+    
+    # Ensure minimum width (at least +/-5% of median)
+    min_width = median_price * 0.10
     if adjusted_width < min_width:
         adjusted_width = min_width
     
-    q25_adjusted = median_est - adjusted_width / 2
-    q75_adjusted = median_est + adjusted_width / 2
-    q25_adjusted = max(100, q25_adjusted)
+    # Calculate final bounds
+    lower_bound = median_price - adjusted_width / 2
+    upper_bound = median_price + adjusted_width / 2
+    
+    # Ensure lower bound is reasonable
+    lower_bound = max(100, lower_bound)
     
     return {
         'median_price': float(median_price),
         'weighted_price': float(weighted_price),
         'std_dev': float(std_dev) if not np.isnan(std_dev) else 0.0,
         'transaction_count': int(transaction_count),
-        'lower_bound': float(q25_adjusted),
-        'upper_bound': float(q75_adjusted),
+        'lower_bound': float(lower_bound),
+        'upper_bound': float(upper_bound),
         'last_transaction_date': last_date,
         'confidence_score': int(confidence_score),
         'estimate_quality': quality
@@ -243,11 +499,8 @@ def download_postcode_boundaries(cache_dir='/app/data/geometries'):
         except Exception:
             pass
     
-    # Try multiple sources for French postcode boundaries
     sources = [
-        # OpenDataSoft - most reliable
         "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/contours-codes-postaux/exports/geojson?lang=fr&timezone=Europe%2FParis",
-        # Alternative from data.gouv.fr
         "https://www.data.gouv.fr/fr/datasets/r/eb36371a-761d-44a8-93ec-3d728bec17ce",
     ]
     
@@ -260,13 +513,11 @@ def download_postcode_boundaries(cache_dir='/app/data/geometries'):
                 content_type = response.headers.get('content-type', '')
                 
                 if 'zip' in content_type or url.endswith('.zip'):
-                    # Handle ZIP file
                     with zipfile.ZipFile(io.BytesIO(response.content)) as z:
                         for name in z.namelist():
                             if name.endswith('.shp') or name.endswith('.geojson'):
                                 z.extractall(cache_dir)
                                 break
-                    # Find the extracted file
                     for f in os.listdir(cache_dir):
                         if f.endswith('.shp'):
                             gdf = gpd.read_file(os.path.join(cache_dir, f))
@@ -275,13 +526,10 @@ def download_postcode_boundaries(cache_dir='/app/data/geometries'):
                             gdf = gpd.read_file(os.path.join(cache_dir, f))
                             break
                 else:
-                    # Direct GeoJSON
                     gdf = gpd.read_file(io.BytesIO(response.content))
                 
-                # Standardize column names
                 gdf.columns = gdf.columns.str.lower()
                 
-                # Find postcode column
                 postcode_col = None
                 for col in ['code_postal', 'postal_code', 'postcode', 'cp', 'code']:
                     if col in gdf.columns:
@@ -291,11 +539,9 @@ def download_postcode_boundaries(cache_dir='/app/data/geometries'):
                 if postcode_col and postcode_col != 'code_postal':
                     gdf = gdf.rename(columns={postcode_col: 'code_postal'})
                 
-                # Ensure postcode is string with leading zeros
                 if 'code_postal' in gdf.columns:
                     gdf['code_postal'] = gdf['code_postal'].astype(str).str.zfill(5)
                 
-                # Save to cache
                 gdf.to_file(cache_file, driver='GeoJSON')
                 
                 print(f"  ✓ Downloaded {len(gdf):,} postcode boundaries")
@@ -314,14 +560,13 @@ def aggregate_by_postcode(transactions_gdf, communes_gdf):
     Aggregate by postcode using OFFICIAL POSTCODE BOUNDARIES.
     
     Downloads real French postcode polygons and uses them for visualization.
-    Falls back to commune boundaries if postcode boundary not available.
+    Falls back to convex hull from transaction points if boundary not available.
     """
     
     print(f"\n{'='*60}")
     print(f"Aggregating by POSTCODE (Official Boundaries)")
     print(f"{'='*60}")
     
-    # Download official postcode boundaries
     print("Loading official postcode boundaries...")
     postcode_boundaries = download_postcode_boundaries()
     
@@ -329,7 +574,6 @@ def aggregate_by_postcode(transactions_gdf, communes_gdf):
     
     if use_official_boundaries:
         print(f"  ✓ Using {len(postcode_boundaries):,} official postcode polygons")
-        # Create lookup dictionary for fast access
         postcode_geom_lookup = {}
         for _, row in postcode_boundaries.iterrows():
             pc = format_postcode(row.get('code_postal', ''))
@@ -337,22 +581,19 @@ def aggregate_by_postcode(transactions_gdf, communes_gdf):
                 postcode_geom_lookup[pc] = row.geometry
         print(f"  ✓ Indexed {len(postcode_geom_lookup):,} postcodes")
     else:
-        print("  ⚠️  Official boundaries not available, using commune-based approach")
+        print("  ⚠️  Official boundaries not available, using fallback approach")
         postcode_geom_lookup = {}
     
-    # Ensure communes have proper code column
     if 'code' not in communes_gdf.columns:
         if 'insee' in communes_gdf.columns:
             communes_gdf['code'] = communes_gdf['insee']
         else:
             communes_gdf['code'] = range(len(communes_gdf))
     
-    # Format postcodes
     print("Formatting postcodes...")
     transactions_gdf = transactions_gdf.copy()
     transactions_gdf['code_postal'] = transactions_gdf['code_postal'].apply(format_postcode)
     
-    # Group transactions by postcode
     print("Grouping transactions by postcode...")
     postcode_groups = transactions_gdf.groupby('code_postal')
     
@@ -372,24 +613,19 @@ def aggregate_by_postcode(transactions_gdf, communes_gdf):
         if len(postcode_transactions) == 0:
             continue
         
-        # Calculate statistics
         stats = calculate_price_statistics(postcode_transactions[['price_per_m2', 'date_mutation']])
         
-        # Get geometry - prefer official boundary
         geometry = None
         
         if postcode in postcode_geom_lookup:
             geometry = postcode_geom_lookup[postcode]
             with_official_boundary += 1
         else:
-            # Fallback: create convex hull from transaction points
-            # or use union of communes where transactions occur
             try:
                 points = postcode_transactions.geometry.tolist()
                 if len(points) >= 3:
                     multi_point = MultiPoint(points)
                     geometry = multi_point.convex_hull
-                    # Add small buffer to make it visible
                     if isinstance(geometry, (Point, LineString)):
                         geometry = geometry.buffer(0.002)
                     else:
@@ -406,7 +642,6 @@ def aggregate_by_postcode(transactions_gdf, communes_gdf):
         if geometry is None or geometry.is_empty:
             continue
         
-        # Ensure valid polygon
         if isinstance(geometry, MultiPolygon):
             geometry = max(geometry.geoms, key=lambda g: g.area)
         elif not isinstance(geometry, Polygon):
@@ -442,8 +677,6 @@ def aggregate_by_postcode(transactions_gdf, communes_gdf):
 def download_cadastre_batiments(departement_code, cache_dir='/app/data/cadastre'):
     """
     Download cadastre BATIMENTS (building footprints) for a department.
-    This gives actual building shapes, not just parcel boundaries.
-    
     Handles large files and timeouts gracefully.
     """
     import gzip
@@ -456,23 +689,18 @@ def download_cadastre_batiments(departement_code, cache_dir='/app/data/cadastre'
     cache_file = os.path.join(cache_dir, f'batiments_{dept}.geojson')
     failed_marker = os.path.join(cache_dir, f'batiments_{dept}.failed')
     
-    # Skip if previously failed (avoid re-trying large files)
     if os.path.exists(failed_marker):
         return None
     
-    # Use cache if available
     if os.path.exists(cache_file):
         try:
             return gpd.read_file(cache_file)
         except Exception:
             pass
     
-    # Large departments - skip download, use fallback geometry
-    # These files are 500MB+ and often timeout
     large_depts = ['59', '75', '69', '13', '31', '33', '34', '06', '83', '92', '93', '94', '77', '78', '91', '95']
     if dept in large_depts:
         print(f"    Skipping large dept {dept} (will use estimated footprints)")
-        # Mark as failed to skip in future
         with open(failed_marker, 'w') as f:
             f.write('skipped - large file')
         return None
@@ -482,28 +710,25 @@ def download_cadastre_batiments(departement_code, cache_dir='/app/data/cadastre'
     try:
         print(f"    Downloading building footprints for dept {dept}...")
         
-        # Stream download with timeout
         response = requests.get(url, timeout=60, stream=True)
         
         if response.status_code != 200:
             print(f"    Warning: HTTP {response.status_code} for dept {dept}")
             return None
         
-        # Check content length - skip if too large (>100MB compressed)
         content_length = response.headers.get('content-length')
         if content_length and int(content_length) > 100 * 1024 * 1024:
-            print(f"    Skipping dept {dept} - file too large ({int(content_length)/1024/1024:.0f}MB)")
+            print(f"    Skipping dept {dept} - file too large")
             with open(failed_marker, 'w') as f:
                 f.write('skipped - too large')
             return None
         
-        # Download in chunks
         chunks = []
         downloaded = 0
-        for chunk in response.iter_content(chunk_size=1024*1024):  # 1MB chunks
+        for chunk in response.iter_content(chunk_size=1024*1024):
             chunks.append(chunk)
             downloaded += len(chunk)
-            if downloaded > 100 * 1024 * 1024:  # Stop if >100MB
+            if downloaded > 100 * 1024 * 1024:
                 print(f"    Stopping download for dept {dept} - exceeds 100MB")
                 with open(failed_marker, 'w') as f:
                     f.write('stopped - exceeded size limit')
@@ -511,32 +736,28 @@ def download_cadastre_batiments(departement_code, cache_dir='/app/data/cadastre'
         
         content = b''.join(chunks)
         
-        # Decompress
         try:
             decompressed = gzip.decompress(content)
         except Exception as e:
             print(f"    Warning: Decompression failed for dept {dept}: {e}")
             return None
         
-        # Parse JSON
         try:
             geojson_data = json.loads(decompressed)
         except Exception as e:
             print(f"    Warning: JSON parse failed for dept {dept}: {e}")
             return None
         
-        # Convert to GeoDataFrame
         if 'features' not in geojson_data or len(geojson_data['features']) == 0:
             print(f"    Warning: No features in dept {dept}")
             return None
         
         gdf = gpd.GeoDataFrame.from_features(geojson_data['features'], crs="EPSG:4326")
         
-        # Save to cache
         try:
             gdf.to_file(cache_file, driver='GeoJSON')
         except Exception:
-            pass  # Cache save failed, but we still have the data
+            pass
         
         print(f"    ✓ Loaded {len(gdf):,} buildings for dept {dept}")
         return gdf
@@ -557,9 +778,6 @@ def download_cadastre_batiments(departement_code, cache_dir='/app/data/cadastre'
 def aggregate_by_parcel(transactions_gdf, max_parcels=300000):
     """
     Aggregate property prices by cadastral parcel using ACTUAL BUILDING FOOTPRINTS.
-    
-    Downloads French cadastre building data (batiments) to get real building shapes
-    instead of using rectangular buffers.
     """
     print(f"\n{'='*60}")
     print(f"Aggregating by BUILDING PLOT (Cadastre Building Footprints)")
@@ -573,14 +791,12 @@ def aggregate_by_parcel(transactions_gdf, max_parcels=300000):
     
     print(f"  Transactions with parcel ID: {len(parcels_df):,}")
     
-    # Extract department codes
     parcels_df['dept_code'] = parcels_df['id_parcelle'].str[:2]
     
     departments = parcels_df['dept_code'].unique()
     departments = [d for d in departments if d and len(d) >= 2]
     print(f"  Departments with parcels: {len(departments)}")
     
-    # Load cadastre building data for each department
     print(f"\nDownloading cadastre building footprints for {len(departments)} departments...")
     print("  (Large departments like Paris, Lyon, Marseille will use estimated footprints)")
     cadastre_buildings = {}
@@ -599,7 +815,6 @@ def aggregate_by_parcel(transactions_gdf, max_parcels=300000):
     
     print(f"  ✓ Loaded building data for {len(cadastre_buildings)}/{len(departments)} departments")
     
-    # Group by parcel
     print("\nGrouping by parcel ID...")
     parcel_groups = parcels_df.groupby('id_parcelle')
     
@@ -633,17 +848,12 @@ def aggregate_by_parcel(transactions_gdf, max_parcels=300000):
         geometry = None
         dept = parcel_id[:2] if len(parcel_id) >= 2 else None
         
-        # Try to find building footprint at transaction location
         if dept and dept in cadastre_buildings:
             buildings_gdf = cadastre_buildings[dept]
             
-            # Get transaction point(s)
             tx_points = group.geometry.tolist()
-            tx_centroid = group.geometry.unary_union.centroid
             
-            # Find buildings that contain or are near the transaction point
             for tx_point in tx_points:
-                # Check which buildings contain this point
                 containing = buildings_gdf[buildings_gdf.contains(tx_point)]
                 
                 if len(containing) > 0:
@@ -651,22 +861,19 @@ def aggregate_by_parcel(transactions_gdf, max_parcels=300000):
                     with_building_footprint += 1
                     break
                 else:
-                    # Find nearest building within 50m
                     distances = buildings_gdf.geometry.distance(tx_point)
                     nearest_idx = distances.idxmin()
                     nearest_dist = distances[nearest_idx]
                     
-                    if nearest_dist < 0.0005:  # ~50m
+                    if nearest_dist < 0.0005:
                         geometry = buildings_gdf.loc[nearest_idx].geometry
                         with_building_footprint += 1
                         break
         
-        # Fallback: create small building footprint from points
         if geometry is None:
             try:
                 if len(group) == 1:
                     point = group.geometry.iloc[0]
-                    # Create realistic building shape (~12m x 12m)
                     geometry = point.buffer(0.00012, cap_style=3)
                 else:
                     points = group.geometry.tolist()

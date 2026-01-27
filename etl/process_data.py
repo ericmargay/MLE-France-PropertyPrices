@@ -1,12 +1,24 @@
 """
-Main ETL pipeline for French property prices analysis
+Main ETL Pipeline for France Property Price Analysis
+=====================================================
 
-This script:
-1. Downloads raw data
-2. Loads and cleans transaction data
-3. Creates spatial geometries
-4. Aggregates by 6 geographic levels
-5. Saves to PostgreSQL/PostGIS
+This script processes DVF (Demandes de Valeurs Foncières) data and creates
+price aggregations using Machine Learning.
+
+PIPELINE STEPS:
+1. Download DVF data from data.gouv.fr
+2. Download geographic boundaries (regions, departments, communes)
+3. Clean and transform transaction data
+4. Train ML model on transactions
+5. Aggregate prices at multiple geographic levels using ML
+6. Save to PostgreSQL with PostGIS geometries
+
+Usage:
+    docker-compose run --rm etl python process_data.py
+
+Environment Variables:
+    DATABASE_URL: PostgreSQL connection string
+    DVF_YEARS: Comma-separated years to process (default: 2023)
 """
 
 import pandas as pd
@@ -14,493 +26,595 @@ import geopandas as gpd
 import numpy as np
 from sqlalchemy import create_engine, text
 from geoalchemy2 import Geometry, WKTElement
-from shapely.geometry import Point
-import os
-import sys
+from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon
 from datetime import datetime
+import requests
+import os
+import gzip
 import time
 import warnings
 warnings.filterwarnings('ignore')
 
-# Import our custom modules
-from download_data import download_dvf_data, download_geometries, verify_downloads
+# Import ML model and spatial aggregation functions
+from ml_price_model import RobustPriceModel, PREDICTION_DATE
 from spatial_aggregation import (
-    spatial_join_and_aggregate,
-    aggregate_by_postcode,
-    aggregate_by_parcel,
-    create_country_aggregate,
-    save_aggregates_to_postgres
+    format_postcode,
+    download_postcode_boundaries,
+    save_aggregates_to_postgres,
+    download_cadastre_batiments
 )
 
-# Database connection
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
 DATABASE_URL = os.getenv('DATABASE_URL', 
                          'postgresql://admin:changeme@postgres:5432/property_prices')
-print(f"Connecting to database: {DATABASE_URL.split('@')[1]}")  # Hide password
-engine = create_engine(DATABASE_URL)
+
+DVF_YEARS = os.getenv('DVF_YEARS', '2023').split(',')
+
+DATA_DIR = '/app/data'
+GEOMETRY_DIR = f'{DATA_DIR}/geometries'
+
+# DVF data URLs
+DVF_BASE_URL = "https://files.data.gouv.fr/geo-dvf/latest/csv"
+
+# Geographic boundary URLs
+GEO_URLS = {
+    'regions': 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/regions-version-simplifiee.geojson',
+    'departements': 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements-version-simplifiee.geojson',
+    'communes': 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/communes-version-simplifiee.geojson'
+}
 
 
-def format_postcode(x):
-    """
-    Convert postcode to 5-digit string with leading zeros.
-    Handles float values like 1630.0 -> '01630'
+def setup_database(engine):
+    """Create necessary database tables and extensions."""
+    print("\n" + "="*60)
+    print("SETTING UP DATABASE")
+    print("="*60)
     
-    French postcodes are always 5 digits, but pandas may read them as floats
-    from CSV files, causing leading zeros to be lost.
-    """
-    if pd.isna(x) or str(x).strip() == '':
-        return ''
-    try:
-        # Handle float values like 1630.0 -> 1630 -> '01630'
-        num = int(float(x))
-        return str(num).zfill(5)
-    except (ValueError, TypeError):
-        # Fallback: just strip and pad
-        cleaned = str(x).strip()
-        # Remove any decimal part if present
-        if '.' in cleaned:
-            cleaned = cleaned.split('.')[0]
-        return cleaned.zfill(5)
+    with engine.connect() as conn:
+        # Enable PostGIS
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+        conn.commit()
+        print("✓ PostGIS extension enabled")
+        
+        # Create transactions table
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS transactions (
+                id SERIAL PRIMARY KEY,
+                date_mutation DATE,
+                nature_mutation VARCHAR(50),
+                valeur_fonciere DECIMAL(15,2),
+                code_postal VARCHAR(10),
+                code_commune VARCHAR(10),
+                code_departement VARCHAR(5),
+                type_local VARCHAR(50),
+                surface_reelle_bati DECIMAL(10,2),
+                nombre_pieces_principales INTEGER,
+                id_parcelle VARCHAR(50),
+                price_per_m2 DECIMAL(10,2),
+                geom GEOMETRY(Point, 4326)
+            )
+        """))
+        conn.commit()
+        print("✓ Transactions table created")
+        
+        # Create aggregates table
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS price_aggregates (
+                id SERIAL PRIMARY KEY,
+                level VARCHAR(20),
+                code VARCHAR(50),
+                name VARCHAR(255),
+                median_price DECIMAL(10,2),
+                weighted_price DECIMAL(10,2),
+                std_dev DECIMAL(10,2),
+                transaction_count INTEGER,
+                lower_bound DECIMAL(10,2),
+                upper_bound DECIMAL(10,2),
+                last_transaction_date DATE,
+                confidence_score INTEGER,
+                estimate_quality VARCHAR(20),
+                geom GEOMETRY(MULTIPOLYGON, 4326)
+            )
+        """))
+        conn.commit()
+        print("✓ Price aggregates table created")
+        
+        # Create spatial indexes
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_transactions_geom 
+            ON transactions USING GIST (geom)
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_aggregates_geom 
+            ON price_aggregates USING GIST (geom)
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_aggregates_level 
+            ON price_aggregates (level)
+        """))
+        conn.commit()
+        print("✓ Spatial indexes created")
 
 
-def load_raw_transactions(filepath, sample_frac=None):
-    """
-    Load DVF transaction data from CSV
+def download_dvf_data(year):
+    """Download DVF data for a specific year."""
+    print(f"\nDownloading DVF data for {year}...")
     
-    Parameters:
-    -----------
-    filepath : str
-        Path to CSV file (can be gzipped)
-    sample_frac : float, optional
-        Fraction of data to sample (for testing, e.g., 0.1 = 10%)
+    os.makedirs(DATA_DIR, exist_ok=True)
     
-    Returns:
-    --------
-    pd.DataFrame : Raw transaction data
-    """
-    print(f"\n{'='*60}")
-    print(f"LOADING TRANSACTION DATA")
-    print(f"{'='*60}\n")
+    url = f"{DVF_BASE_URL}/{year}/full.csv.gz"
+    local_path = f"{DATA_DIR}/dvf_{year}.csv.gz"
     
-    print(f"Reading from: {filepath}")
-    print("⏳ This may take 5-10 minutes for large files...")
-    print("   Loading and decompressing gzipped CSV...")
+    if os.path.exists(local_path):
+        print(f"  Using cached file: {local_path}")
+        return local_path
     
-    start_time = time.time()
-    
-    # Read CSV (handles .gz automatically)
-    df = pd.read_csv(
-        filepath,
-        low_memory=False,
-        compression='gzip' if filepath.endswith('.gz') else None
-    )
-    
-    elapsed = time.time() - start_time
-    print(f"✓ Loaded {len(df):,} rows in {elapsed:.1f} seconds")
-    print(f"  Columns: {df.shape[1]}")
-    print(f"  Memory usage: {df.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
-    
-    # Sample if requested (for testing)
-    if sample_frac:
-        original_len = len(df)
-        df = df.sample(frac=sample_frac, random_state=42)
-        print(f"Sampled {len(df):,} rows ({sample_frac*100}% of data)")
-    
-    return df
+    response = requests.get(url, stream=True)
+    if response.status_code == 200:
+        with open(local_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=1024*1024):
+                f.write(chunk)
+        print(f"  ✓ Downloaded: {local_path}")
+        return local_path
+    else:
+        print(f"  ✗ Failed to download: HTTP {response.status_code}")
+        return None
 
 
-def clean_transaction_data(df):
-    """
-    Clean and filter transaction data
+def download_geometries():
+    """Download geographic boundary files."""
+    print("\n" + "="*60)
+    print("DOWNLOADING GEOGRAPHIC BOUNDARIES")
+    print("="*60)
     
-    Filters:
-    - Residential properties only (Maison, Appartement)
-    - Valid prices and surface areas
-    - Remove outliers
-    - Valid coordinates
-    """
-    print(f"\n{'='*60}")
-    print(f"CLEANING TRANSACTION DATA")
-    print(f"{'='*60}\n")
+    os.makedirs(GEOMETRY_DIR, exist_ok=True)
     
-    original_len = len(df)
+    for name, url in GEO_URLS.items():
+        local_path = f"{GEOMETRY_DIR}/{name}.geojson"
+        
+        if os.path.exists(local_path):
+            print(f"  Using cached: {name}")
+            continue
+        
+        try:
+            response = requests.get(url, timeout=60)
+            if response.status_code == 200:
+                with open(local_path, 'w') as f:
+                    f.write(response.text)
+                print(f"  ✓ Downloaded: {name}")
+            else:
+                print(f"  ✗ Failed: {name}")
+        except Exception as e:
+            print(f"  ✗ Error downloading {name}: {e}")
+
+
+def load_and_clean_dvf(year):
+    """Load and clean DVF data for a year."""
+    print(f"\nProcessing DVF data for {year}...")
     
-    # Step 1: Filter residential properties
-    print("1. Filtering residential properties...")
-    df = df[df['type_local'].isin(['Maison', 'Appartement'])]
-    print(f"   Kept {len(df):,} residential transactions ({len(df)/original_len*100:.1f}%)")
+    file_path = f"{DATA_DIR}/dvf_{year}.csv.gz"
     
-    # Step 2: Remove rows with missing critical data
-    print("2. Removing missing values...")
-    required_columns = ['valeur_fonciere', 'surface_reelle_bati', 'longitude', 'latitude']
-    df = df.dropna(subset=required_columns)
-    print(f"   Kept {len(df):,} complete transactions ({len(df)/original_len*100:.1f}%)")
+    if not os.path.exists(file_path):
+        file_path = download_dvf_data(year)
+        if file_path is None:
+            return None
     
-    # Step 3: Calculate price per m²
-    print("3. Calculating price per m²...")
-    df['price_per_m2'] = df['valeur_fonciere'] / df['surface_reelle_bati']
-    
-    # Step 4: Remove outliers
-    print("4. Removing outliers...")
-    
-    # Price per m² filters (reasonable range for France)
-    price_min = 500   # €/m²
-    price_max = 20000  # €/m²
-    
-    # Surface area filters
-    surface_min = 10   # m²
-    surface_max = 500  # m²
-    
-    df = df[
-        (df['price_per_m2'] >= price_min) & 
-        (df['price_per_m2'] <= price_max) &
-        (df['surface_reelle_bati'] >= surface_min) &
-        (df['surface_reelle_bati'] <= surface_max)
+    # Load with specific columns
+    columns_to_load = [
+        'date_mutation', 'nature_mutation', 'valeur_fonciere',
+        'code_postal', 'code_commune', 'code_departement',
+        'type_local', 'surface_reelle_bati', 'nombre_pieces_principales',
+        'id_parcelle', 'longitude', 'latitude'
     ]
     
-    print(f"   Kept {len(df):,} valid transactions ({len(df)/original_len*100:.1f}%)")
-    print(f"   Price range: €{df['price_per_m2'].min():.0f} - €{df['price_per_m2'].max():.0f}/m²")
+    print("  Loading CSV...")
+    df = pd.read_csv(
+        file_path, 
+        compression='gzip',
+        usecols=columns_to_load,
+        low_memory=False
+    )
     
-    # Step 5: Convert date to datetime
-    print("5. Converting dates...")
-    df['date_mutation'] = pd.to_datetime(df['date_mutation'], errors='coerce')
-    df = df.dropna(subset=['date_mutation'])
-    print(f"   Date range: {df['date_mutation'].min()} to {df['date_mutation'].max()}")
+    print(f"  Raw rows: {len(df):,}")
     
-    # Step 6: Clean location codes - FIXED VERSION
-    print("6. Cleaning location codes...")
+    # Filter to property sales with valid data
+    df = df[df['nature_mutation'] == 'Vente']
+    df = df[df['type_local'].isin(['Maison', 'Appartement'])]
+    df = df[df['valeur_fonciere'].notna() & (df['valeur_fonciere'] > 0)]
+    df = df[df['surface_reelle_bati'].notna() & (df['surface_reelle_bati'] > 0)]
+    df = df[df['longitude'].notna() & df['latitude'].notna()]
     
-    # CRITICAL FIX: Handle postcodes properly to preserve leading zeros
-    # French postcodes like 01630 are read as floats (1630.0) by pandas
-    # We need to convert them back to 5-digit strings with leading zeros
+    # Calculate price per m²
+    df['price_per_m2'] = df['valeur_fonciere'] / df['surface_reelle_bati']
+    
+    # Filter outliers
+    df = df[(df['price_per_m2'] > 100) & (df['price_per_m2'] < 50000)]
+    df = df[(df['surface_reelle_bati'] >= 9) & (df['surface_reelle_bati'] <= 500)]
+    
+    # Clean postcodes
     df['code_postal'] = df['code_postal'].apply(format_postcode)
-    df['code_commune'] = df['code_commune'].astype(str).str.strip()
-    df['code_departement'] = df['code_departement'].astype(str).str.strip()
     
-    # Verify postcode format
-    sample_postcodes = df['code_postal'].head(10).tolist()
-    print(f"   Sample postcodes: {sample_postcodes}")
+    # Ensure department code
+    if 'code_departement' not in df.columns or df['code_departement'].isna().any():
+        df['code_departement'] = df['code_commune'].astype(str).str[:2]
     
-    # Verify we have proper 5-digit postcodes
-    valid_postcodes = df['code_postal'].str.len() == 5
-    print(f"   Valid 5-digit postcodes: {valid_postcodes.sum():,} ({valid_postcodes.mean()*100:.1f}%)")
-    
-    # Step 7: Clean parcel IDs
-    print("7. Cleaning parcel IDs...")
-    if 'id_parcelle' in df.columns:
-        df['id_parcelle'] = df['id_parcelle'].astype(str).str.strip()
-        parcels_with_id = df['id_parcelle'].notna().sum()
-        print(f"   Transactions with parcel ID: {parcels_with_id:,} ({parcels_with_id/len(df)*100:.1f}%)")
-    
-    print(f"\n✓ Final cleaned dataset: {len(df):,} transactions")
+    print(f"  Cleaned rows: {len(df):,}")
     
     return df
 
 
-def create_geodataframe(df):
+def save_transactions_to_db(df, engine):
+    """Save transaction data to PostgreSQL."""
+    print("\nSaving transactions to database...")
+    
+    # Create geometry column
+    df['geom'] = df.apply(
+        lambda row: WKTElement(
+            Point(row['longitude'], row['latitude']).wkt, 
+            srid=4326
+        ),
+        axis=1
+    )
+    
+    # Select columns for database
+    columns = [
+        'date_mutation', 'nature_mutation', 'valeur_fonciere',
+        'code_postal', 'code_commune', 'code_departement',
+        'type_local', 'surface_reelle_bati', 'nombre_pieces_principales',
+        'id_parcelle', 'price_per_m2', 'geom'
+    ]
+    
+    df_to_save = df[columns].copy()
+    
+    # Save in chunks
+    chunk_size = 50000
+    total_chunks = (len(df_to_save) // chunk_size) + 1
+    
+    for i in range(0, len(df_to_save), chunk_size):
+        chunk = df_to_save.iloc[i:i+chunk_size]
+        chunk.to_sql(
+            'transactions',
+            engine,
+            if_exists='append',
+            index=False,
+            dtype={'geom': Geometry('POINT', srid=4326)}
+        )
+        print(f"  Saved chunk {i//chunk_size + 1}/{total_chunks}")
+    
+    print(f"✓ Saved {len(df_to_save):,} transactions")
+
+
+def load_transactions_as_gdf(engine):
+    """Load transactions from database as GeoDataFrame."""
+    print("\nLoading transactions from database...")
+    
+    query = """
+        SELECT 
+            valeur_fonciere,
+            date_mutation,
+            type_local,
+            surface_reelle_bati,
+            code_commune,
+            code_postal,
+            code_departement,
+            id_parcelle,
+            price_per_m2,
+            ST_X(geom) as longitude,
+            ST_Y(geom) as latitude
+        FROM transactions
+        WHERE price_per_m2 IS NOT NULL 
+          AND price_per_m2 > 100
+          AND price_per_m2 < 50000
+          AND geom IS NOT NULL
     """
-    Convert DataFrame to GeoDataFrame with point geometries
-    """
-    print(f"\n{'='*60}")
-    print(f"CREATING GEODATAFRAME")
-    print(f"{'='*60}\n")
     
-    print("Creating point geometries from coordinates...")
-    
-    start_time = time.time()
-    
-    # Create geometry from longitude/latitude
+    df = pd.read_sql(query, engine)
     geometry = [Point(xy) for xy in zip(df['longitude'], df['latitude'])]
-    
-    # Create GeoDataFrame
     gdf = gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
     
-    elapsed = time.time() - start_time
-    
-    print(f"✓ Created GeoDataFrame with {len(gdf):,} points in {elapsed:.1f} seconds")
-    print(f"  CRS: {gdf.crs}")
-    print(f"  Bounds: {gdf.total_bounds}")
-    
+    print(f"✓ Loaded {len(gdf):,} transactions")
     return gdf
 
 
-def load_to_postgres(gdf):
-    """
-    Load cleaned transaction data to PostgreSQL
-    """
+def aggregate_with_ml(transactions_gdf, boundaries_gdf, level_name,
+                      join_column, name_column, ml_model, parent_estimates=None):
+    """Aggregate at a geographic level using ML."""
     print(f"\n{'='*60}")
-    print(f"LOADING TO POSTGRESQL")
-    print(f"{'='*60}\n")
+    print(f"Aggregating: {level_name.upper()}")
+    print(f"{'='*60}")
+    
+    if transactions_gdf.crs != boundaries_gdf.crs:
+        transactions_gdf = transactions_gdf.to_crs(boundaries_gdf.crs)
+    
+    joined = gpd.sjoin(transactions_gdf, boundaries_gdf, how='inner', predicate='within')
+    print(f"Matched: {len(joined):,} transactions")
+    
+    aggregated_data = []
+    codes = list(joined[join_column].unique())
+    level_estimates = {}
+    
+    for i, code in enumerate(codes):
+        if (i + 1) % 500 == 0:
+            print(f"  ... {i + 1:,}/{len(codes):,} zones")
+        
+        group = joined[joined[join_column] == code]
+        if len(group) == 0:
+            continue
+        
+        geom_match = boundaries_gdf[boundaries_gdf[join_column] == code]
+        if len(geom_match) == 0:
+            continue
+        
+        geometry = geom_match.geometry.iloc[0]
+        centroid = geometry.centroid
+        
+        # Get parent estimate
+        parent_estimate = None
+        if parent_estimates:
+            if 'code_departement' in group.columns and level_name == 'commune':
+                parent_code = group['code_departement'].iloc[0]
+                parent_estimate = parent_estimates.get(parent_code)
+        
+        if parent_estimate is None:
+            parent_estimate = ml_model.global_median_price
+        
+        # ML prediction
+        stats = ml_model.predict_zone(
+            group,
+            zone_centroid=(centroid.x, centroid.y),
+            parent_estimate=parent_estimate
+        )
+        
+        level_estimates[code] = stats['predicted_price']
+        
+        name = geom_match[name_column].iloc[0] if name_column in geom_match.columns else code
+        
+        aggregated_data.append({
+            'level': level_name,
+            'code': code,
+            'name': name,
+            'geometry': geometry,
+            **stats
+        })
+    
+    result_gdf = gpd.GeoDataFrame(aggregated_data, crs=boundaries_gdf.crs)
+    
+    print(f"✓ Created {len(result_gdf):,} zones")
+    if len(result_gdf) > 0:
+        print(f"  Price range: €{result_gdf['predicted_price'].min():,.0f} - €{result_gdf['predicted_price'].max():,.0f}/m²")
+    
+    return result_gdf, level_estimates
+
+
+def aggregate_postcodes_ml(transactions_gdf, communes_gdf, ml_model, commune_estimates):
+    """Aggregate postcodes using official boundaries and ML."""
+    print(f"\n{'='*60}")
+    print(f"Aggregating: POSTCODE")
+    print(f"{'='*60}")
+    
+    postcode_boundaries = download_postcode_boundaries()
+    
+    postcode_geom_lookup = {}
+    if postcode_boundaries is not None:
+        for _, row in postcode_boundaries.iterrows():
+            pc = format_postcode(row.get('code_postal', ''))
+            if pc:
+                postcode_geom_lookup[pc] = row.geometry
+    
+    transactions_gdf = transactions_gdf.copy()
+    transactions_gdf['code_postal'] = transactions_gdf['code_postal'].apply(format_postcode)
+    
+    # Join with communes
+    if 'code' not in communes_gdf.columns and 'insee' in communes_gdf.columns:
+        communes_gdf['code'] = communes_gdf['insee']
+    
+    joined = gpd.sjoin(
+        transactions_gdf,
+        communes_gdf[['code', 'geometry']],
+        how='left',
+        predicate='within'
+    )
+    
+    postcode_groups = joined.groupby('code_postal')
+    unique_postcodes = [pc for pc in postcode_groups.groups.keys() if pc]
+    
+    print(f"Processing {len(unique_postcodes):,} postcodes...")
+    
+    aggregated_data = []
+    
+    for i, postcode in enumerate(unique_postcodes):
+        if (i + 1) % 500 == 0:
+            print(f"  ... {i + 1:,}/{len(unique_postcodes):,}")
+        
+        group = postcode_groups.get_group(postcode)
+        if len(group) == 0:
+            continue
+        
+        # Get geometry
+        if postcode in postcode_geom_lookup:
+            geometry = postcode_geom_lookup[postcode]
+        else:
+            try:
+                points = group.geometry.tolist()
+                if len(points) >= 3:
+                    geometry = MultiPoint(points).convex_hull.buffer(0.0005)
+                else:
+                    geometry = points[0].buffer(0.003)
+            except:
+                continue
+        
+        if geometry is None or geometry.is_empty:
+            continue
+        
+        # Parent estimate
+        commune_codes = group['code'].dropna().unique()
+        parent_prices = [commune_estimates.get(c) for c in commune_codes if c in commune_estimates]
+        parent_estimate = np.median([p for p in parent_prices if p]) if parent_prices else ml_model.global_median_price
+        
+        centroid = geometry.centroid
+        stats = ml_model.predict_zone(
+            group,
+            zone_centroid=(centroid.x, centroid.y),
+            parent_estimate=parent_estimate
+        )
+        
+        if isinstance(geometry, MultiPolygon):
+            geometry = max(geometry.geoms, key=lambda g: g.area)
+        
+        aggregated_data.append({
+            'level': 'postcode',
+            'code': postcode,
+            'name': postcode,
+            'geometry': geometry,
+            **stats
+        })
+    
+    result_gdf = gpd.GeoDataFrame(aggregated_data, crs=transactions_gdf.crs)
+    
+    print(f"✓ Created {len(result_gdf):,} postcode zones")
+    return result_gdf
+
+
+def main():
+    """Main ETL pipeline."""
+    print("\n" + "="*70)
+    print("   FRANCE PROPERTY PRICE ETL PIPELINE (ML)")
+    print("="*70)
+    print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Years to process: {DVF_YEARS}")
+    print(f"Prediction target: {PREDICTION_DATE.strftime('%Y-%m-%d')}")
     
     start_time = time.time()
     
-    # Prepare data for PostGIS
-    gdf_copy = gdf.copy()
+    # Database connection
+    engine = create_engine(DATABASE_URL)
+    print(f"\nDatabase: {DATABASE_URL.split('@')[1]}")
     
-    # Convert geometry to WKT for PostGIS
-    print("Converting geometries for PostGIS...")
-    gdf_copy['geom'] = gdf_copy['geometry'].apply(
-        lambda x: WKTElement(x.wkt, srid=4326)
-    )
+    # =================================================================
+    # STEP 1: Setup
+    # =================================================================
+    setup_database(engine)
+    download_geometries()
     
-    # Select columns for database - INCLUDING PARCEL DATA
-    columns = [
-        'valeur_fonciere', 'date_mutation', 'type_local', 
-        'surface_reelle_bati', 'code_commune', 'code_postal', 
-        'code_departement', 'id_parcelle', 'surface_terrain',  # ← PARCEL COLUMNS
-        'price_per_m2', 'geom'
-    ]
+    # =================================================================
+    # STEP 2: Load and process DVF data
+    # =================================================================
+    print("\n" + "="*60)
+    print("PROCESSING DVF DATA")
+    print("="*60)
     
-    # Drop dependent views first
-    print("Dropping dependent views if they exist...")
+    # Clear existing transactions
     with engine.connect() as conn:
-        try:
-            conn.execute(text("DROP VIEW IF EXISTS top_cities_by_volume CASCADE"))
-            conn.execute(text("DROP VIEW IF EXISTS price_stats_summary CASCADE"))
-            conn.commit()
-            print("✓ Dropped existing views")
-        except Exception as e:
-            print(f"Note: {str(e)}")
-            conn.rollback()
-    
-    # Write to PostgreSQL
-    print("Writing to database...")
-    write_start = time.time()
-    
-    gdf_copy[columns].to_sql(
-        'transactions',
-        engine,
-        if_exists='replace',  # Replace existing data
-        index=False,
-        dtype={'geom': Geometry('POINT', srid=4326)},
-        method='multi',
-        chunksize=10000
-    )
-    
-    write_time = time.time() - write_start
-    print(f"✓ Loaded {len(gdf_copy):,} transactions to PostgreSQL in {write_time:.1f} seconds")
-    
-    # Recreate views
-    print("Recreating views...")
-    with engine.connect() as conn:
-        try:
-            conn.execute(text("""
-                CREATE OR REPLACE VIEW top_cities_by_volume AS
-                SELECT 
-                    code_commune,
-                    type_local,
-                    COUNT(*) as transaction_count,
-                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price_per_m2) as median_price,
-                    AVG(price_per_m2) as avg_price,
-                    STDDEV(price_per_m2) as std_dev
-                FROM transactions
-                WHERE price_per_m2 IS NOT NULL
-                GROUP BY code_commune, type_local
-                ORDER BY transaction_count DESC
-            """))
-            
-            conn.execute(text("""
-                CREATE OR REPLACE VIEW price_stats_summary AS
-                SELECT 
-                    level,
-                    COUNT(*) as region_count,
-                    AVG(median_price) as avg_median_price,
-                    MIN(median_price) as min_price,
-                    MAX(median_price) as max_price,
-                    SUM(transaction_count) as total_transactions
-                FROM price_aggregates
-                GROUP BY level
-                ORDER BY 
-                    CASE level
-                        WHEN 'country' THEN 1
-                        WHEN 'region' THEN 2
-                        WHEN 'departement' THEN 3
-                        WHEN 'commune' THEN 4
-                        WHEN 'postcode' THEN 5
-                        WHEN 'parcel' THEN 6
-                    END
-            """))
-            
-            conn.commit()
-            print("✓ Recreated views")
-        except Exception as e:
-            print(f"Note: Could not recreate views: {str(e)}")
-            conn.rollback()
-    
-    # Verify
-    with engine.connect() as conn:
-        result = conn.execute(text("SELECT COUNT(*) FROM transactions"))
-        count = result.scalar()
-        print(f"✓ Verified: {count:,} rows in database")
-    
-    elapsed = time.time() - start_time
-    print(f"\n✓ Database loading completed in {elapsed:.1f} seconds")
-
-        
-def aggregate_all_levels(transactions_gdf):
-    """
-    Aggregate property prices by all 6 geographic levels
-    
-    Levels:
-    1. Country (France)
-    2. Region (13 regions)
-    3. Département (96 départements)
-    4. Commune/City (31,000+ communes) - serves as "Neighborhood"
-    5. Postcode (code postal)
-    6. Building Plots (parcelles cadastrales)
-    """
-    print(f"\n{'='*60}")
-    print(f"STARTING SPATIAL AGGREGATION")
-    print(f"{'='*60}")
-    
-    # Clear existing aggregates
-    print("\nClearing existing aggregates...")
-    with engine.connect() as conn:
-        conn.execute(text("TRUNCATE price_aggregates RESTART IDENTITY"))
+        conn.execute(text("TRUNCATE TABLE transactions"))
         conn.commit()
     
-    all_aggregates = []
-    total_start = time.time()
+    for year in DVF_YEARS:
+        df = load_and_clean_dvf(year.strip())
+        if df is not None and len(df) > 0:
+            save_transactions_to_db(df, engine)
     
-    # Level 1: Country
-    print(f"\n{'='*60}")
-    print("LEVEL 1/6: COUNTRY")
-    print(f"{'='*60}")
-    level_start = time.time()
+    # =================================================================
+    # STEP 3: Load transactions as GeoDataFrame
+    # =================================================================
+    transactions_gdf = load_transactions_as_gdf(engine)
     
-    country_agg = create_country_aggregate(transactions_gdf, country_code='FRA')
-    all_aggregates.append(country_agg)
-    save_aggregates_to_postgres(country_agg, engine, if_exists='append')
+    # =================================================================
+    # STEP 4: Train ML model
+    # =================================================================
+    print("\n" + "="*60)
+    print("TRAINING ML MODEL")
+    print("="*60)
     
-    level_time = time.time() - level_start
-    print(f"\n✓ Country aggregation completed in {level_time:.1f} seconds")
+    ml_model = RobustPriceModel(prediction_date=PREDICTION_DATE)
+    ml_model.fit(transactions_gdf)
     
-    # Level 2: Regions
-    print(f"\n{'='*60}")
-    print("LEVEL 2/6: REGIONS")
-    print(f"{'='*60}")
-    level_start = time.time()
+    # Save model
+    model_path = f'{DATA_DIR}/ml_price_model.joblib'
+    ml_model.save(model_path)
     
-    print("Loading region boundaries...")
-    regions = gpd.read_file('/app/data/geometries/regions.geojson')
-    regions_agg = spatial_join_and_aggregate(
-        transactions_gdf, 
-        regions, 
-        level_name='region',
-        join_column='code',
-        name_column='nom'
-    )
-    all_aggregates.append(regions_agg)
-    save_aggregates_to_postgres(regions_agg, engine, if_exists='append')
-    
-    level_time = time.time() - level_start
-    print(f"\n✓ Region aggregation completed in {level_time:.1f} seconds")
-    
-    # Level 3: Départements
-    print(f"\n{'='*60}")
-    print("LEVEL 3/6: DÉPARTEMENTS")
-    print(f"{'='*60}")
-    level_start = time.time()
-    
-    print("Loading département boundaries...")
-    departements = gpd.read_file('/app/data/geometries/departements.geojson')
-    departements_agg = spatial_join_and_aggregate(
-        transactions_gdf,
-        departements,
-        level_name='departement',
-        join_column='code',
-        name_column='nom'
-    )
-    all_aggregates.append(departements_agg)
-    save_aggregates_to_postgres(departements_agg, engine, if_exists='append')
-    
-    level_time = time.time() - level_start
-    print(f"\n✓ Département aggregation completed in {level_time:.1f} seconds")
-    
-    # Level 4: Communes (serves as "Neighborhood")
-    print(f"\n{'='*60}")
-    print("LEVEL 4/6: COMMUNES (NEIGHBORHOODS)")
-    print(f"{'='*60}")
-    level_start = time.time()
-    
-    print("Loading commune boundaries...")
-    communes = gpd.read_file('/app/data/geometries/communes.geojson')
-    
-    # Communes GeoJSON has different structure
-    if 'code' in communes.columns:
-        join_col = 'code'
-    elif 'insee' in communes.columns:
-        join_col = 'insee'
-    else:
-        print("Warning: Cannot find commune code column")
-        join_col = communes.columns[0]
-    
-    communes_agg = spatial_join_and_aggregate(
-        transactions_gdf,
-        communes,
-        level_name='commune',
-        join_column=join_col,
-        name_column='nom' if 'nom' in communes.columns else None
-    )
-    all_aggregates.append(communes_agg)
-    save_aggregates_to_postgres(communes_agg, engine, if_exists='append')
-    
-    level_time = time.time() - level_start
-    print(f"\n✓ Commune aggregation completed in {level_time:.1f} seconds")
-    
-    # Level 5: Postcodes
-    print(f"\n{'='*60}")
-    print("LEVEL 5/6: POSTCODES")
-    print(f"{'='*60}")
-    level_start = time.time()
-    
-    postcode_agg = aggregate_by_postcode(transactions_gdf, communes)
-    all_aggregates.append(postcode_agg)
-    save_aggregates_to_postgres(postcode_agg, engine, if_exists='append')
-    
-    level_time = time.time() - level_start
-    print(f"\n✓ Postcode aggregation completed in {level_time:.1f} seconds")
-    
-    # Level 6: Building Plots (Parcels)
-    print(f"\n{'='*60}")
-    print("LEVEL 6/6: BUILDING PLOTS (PARCELS)")
-    print(f"{'='*60}")
-    level_start = time.time()
-    
-    parcel_agg = aggregate_by_parcel(transactions_gdf, max_parcels=300000)
-    all_aggregates.append(parcel_agg)
-    save_aggregates_to_postgres(parcel_agg, engine, if_exists='append')
-    
-    level_time = time.time() - level_start
-    print(f"\n✓ Building plot aggregation completed in {level_time:.1f} seconds")
-    
-    # Summary
-    total_time = time.time() - total_start
-    total_records = sum(len(agg) for agg in all_aggregates)
-    
-    print(f"\n{'='*60}")
-    print(f"AGGREGATION COMPLETE")
-    print(f"{'='*60}")
-    print(f"✓ Created {total_records:,} aggregated records across 6 levels")
-    print(f"✓ Total aggregation time: {total_time/60:.1f} minutes ({total_time:.1f} seconds)")
-    print(f"{'='*60}\n")
-    
-    return all_aggregates
-
-
-def verify_aggregates():
-    """
-    Verify aggregated data in PostgreSQL
-    """
-    print(f"\n{'='*60}")
-    print(f"VERIFYING AGGREGATES")
-    print(f"{'='*60}\n")
+    # =================================================================
+    # STEP 5: Clear and regenerate aggregates
+    # =================================================================
+    print("\n" + "="*60)
+    print("GENERATING PRICE AGGREGATES (ML)")
+    print("="*60)
     
     with engine.connect() as conn:
-        # Count by level
+        conn.execute(text("TRUNCATE TABLE price_aggregates"))
+        conn.commit()
+    
+    # Load boundaries
+    regions = gpd.read_file(f'{GEOMETRY_DIR}/regions.geojson')
+    departements = gpd.read_file(f'{GEOMETRY_DIR}/departements.geojson')
+    communes = gpd.read_file(f'{GEOMETRY_DIR}/communes.geojson')
+    
+    # Country
+    print("\n" + "="*60)
+    print("Aggregating: COUNTRY")
+    print("="*60)
+    
+    country_stats = ml_model.predict_zone(
+        transactions_gdf,
+        zone_centroid=(2.5, 46.6)
+    )
+    
+    country_gdf = gpd.GeoDataFrame([{
+        'level': 'country',
+        'code': 'FRA',
+        'name': 'France',
+        'geometry': regions.geometry.unary_union,
+        **country_stats
+    }], crs=transactions_gdf.crs)
+    
+    print(f"✓ France: €{country_stats['predicted_price']:,.0f}/m²")
+    save_aggregates_to_postgres(country_gdf, engine, if_exists='append')
+    
+    country_estimate = {'FRA': country_stats['predicted_price']}
+    
+    # Regions
+    region_gdf, region_estimates = aggregate_with_ml(
+        transactions_gdf, regions, 'region', 'code', 'nom',
+        ml_model, parent_estimates=country_estimate
+    )
+    save_aggregates_to_postgres(region_gdf, engine, if_exists='append')
+    
+    # Departments
+    dept_gdf, dept_estimates = aggregate_with_ml(
+        transactions_gdf, departements, 'departement', 'code', 'nom',
+        ml_model, parent_estimates=region_estimates
+    )
+    save_aggregates_to_postgres(dept_gdf, engine, if_exists='append')
+    
+    # Communes
+    commune_parent = {row['code']: dept_estimates.get(row['code'][:2]) for _, row in communes.iterrows()}
+    
+    commune_gdf, commune_estimates = aggregate_with_ml(
+        transactions_gdf, communes, 'commune', 'code', 'nom',
+        ml_model, parent_estimates=commune_parent
+    )
+    save_aggregates_to_postgres(commune_gdf, engine, if_exists='append')
+    
+    # Postcodes
+    postcode_gdf = aggregate_postcodes_ml(
+        transactions_gdf, communes, ml_model, commune_estimates
+    )
+    save_aggregates_to_postgres(postcode_gdf, engine, if_exists='append')
+    
+    # =================================================================
+    # VERIFICATION
+    # =================================================================
+    print("\n" + "="*60)
+    print("VERIFICATION")
+    print("="*60)
+    
+    with engine.connect() as conn:
         result = conn.execute(text("""
-            SELECT level, COUNT(*) as count, 
-                   AVG(median_price) as avg_price,
-                   SUM(transaction_count) as total_transactions
+            SELECT level, COUNT(*) as zones,
+                   ROUND(AVG(median_price)) as avg_price,
+                   ROUND(AVG(confidence_score)) as avg_conf
             FROM price_aggregates
             GROUP BY level
             ORDER BY 
@@ -510,130 +624,26 @@ def verify_aggregates():
                     WHEN 'departement' THEN 3
                     WHEN 'commune' THEN 4
                     WHEN 'postcode' THEN 5
-                    WHEN 'parcel' THEN 6
                 END
         """))
         
-        print("Aggregation Summary:")
-        print("-" * 70)
+        print("\n" + "-"*60)
+        print(f"{'Level':<12} | {'Zones':>8} | {'Avg Price':>12} | {'Confidence':>10}")
+        print("-"*60)
         for row in result:
-            print(f"  {row.level:12} | {row.count:6,} regions | "
-                  f"Avg: €{row.avg_price:6,.0f}/m² | "
-                  f"Transactions: {row.total_transactions:,}")
-        print("-" * 70)
-
-
-def main():
-    """
-    Main ETL pipeline execution
-    """
-    overall_start = time.time()
+            print(f"{row[0]:<12} | {row[1]:>8,} | €{row[2]:>10,}/m² | {row[3]:>8}/100")
+        print("-"*60)
     
-    print("\n" + "="*60)
-    print("FRANCE PROPERTY PRICES - ETL PIPELINE")
-    print("="*60)
-    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("="*60)
+    elapsed = time.time() - start_time
     
-    try:
-        # Step 1: Download data
-        step_start = time.time()
-        print("\n" + "="*60)
-        print("STEP 1: DATA DOWNLOAD")
-        print("="*60)
-        
-        if not verify_downloads():
-            print("Downloading data...")
-            download_dvf_data(2023)
-            download_geometries()
-        else:
-            print("✓ Data already downloaded")
-        
-        step_time = time.time() - step_start
-        print(f"\n✓ Step 1 completed in {step_time:.1f} seconds")
-        
-        # Step 2: Load and clean
-        step_start = time.time()
-        print("\n" + "="*60)
-        print("STEP 2: DATA LOADING & CLEANING")
-        print("="*60)
-        
-        df = load_raw_transactions(
-            '/app/data/raw/dvf_2023.csv.gz',
-            sample_frac=None  # Set to 0.1 for 10% sample
-        )
-        
-        df_clean = clean_transaction_data(df)
-        
-        step_time = time.time() - step_start
-        print(f"\n✓ Step 2 completed in {step_time/60:.1f} minutes ({step_time:.1f} seconds)")
-        
-        # Step 3: Create GeoDataFrame
-        step_start = time.time()
-        print("\n" + "="*60)
-        print("STEP 3: SPATIAL PROCESSING")
-        print("="*60)
-        
-        gdf = create_geodataframe(df_clean)
-        
-        step_time = time.time() - step_start
-        print(f"\n✓ Step 3 completed in {step_time:.1f} seconds")
-        
-        # Step 4: Load to PostgreSQL
-        step_start = time.time()
-        print("\n" + "="*60)
-        print("STEP 4: DATABASE LOADING")
-        print("="*60)
-        
-        load_to_postgres(gdf)
-        
-        step_time = time.time() - step_start
-        print(f"\n✓ Step 4 completed in {step_time/60:.1f} minutes ({step_time:.1f} seconds)")
-        
-        # Step 5: Spatial aggregation
-        step_start = time.time()
-        print("\n" + "="*60)
-        print("STEP 5: SPATIAL AGGREGATION (6 LEVELS)")
-        print("="*60)
-        
-        aggregates = aggregate_all_levels(gdf)
-        
-        step_time = time.time() - step_start
-        print(f"✓ Step 5 completed in {step_time/60:.1f} minutes ({step_time:.1f} seconds)")
-        
-        # Step 6: Verify
-        step_start = time.time()
-        print("\n" + "="*60)
-        print("STEP 6: VERIFICATION")
-        print("="*60)
-        
-        verify_aggregates()
-        
-        step_time = time.time() - step_start
-        print(f"\n✓ Step 6 completed in {step_time:.1f} seconds")
-        
-        # Final summary
-        total_time = time.time() - overall_start
-        
-        print("\n" + "="*60)
-        print("✓ ETL PIPELINE COMPLETED SUCCESSFULLY!")
-        print("="*60)
-        print(f"Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"Total runtime: {total_time/60:.1f} minutes ({total_time:.1f} seconds)")
-        print(f"Transactions loaded: {len(gdf):,}")
-        print(f"Aggregates created: {sum(len(agg) for agg in aggregates):,}")
-        print(f"Levels: Country, Region, Département, Commune, Postcode, Parcel")
-        print("="*60)
-        
-        return True
-        
-    except Exception as e:
-        print(f"\n✗ ERROR: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
+    print("\n" + "="*70)
+    print("✓ ETL PIPELINE COMPLETE")
+    print("="*70)
+    print(f"Total time: {elapsed/60:.1f} minutes")
+    print(f"Model R²: {ml_model.cv_r2:.3f}")
+    print(f"Annual trend: {(np.exp(ml_model.annual_trend)-1)*100:+.2f}%")
+    print("="*70)
 
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    main()
