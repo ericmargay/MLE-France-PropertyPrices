@@ -1,462 +1,531 @@
 """
-FastAPI application for France Property Prices
-Interactive map visualization with Mapbox GL JS
-Supports 6 aggregation levels: Country, Region, Département, Commune, Postcode, Parcel
+France Property Prices - FastAPI Web Application
+================================================
+
+Hybrid API that supports both:
+1. DATABASE MODE: PostgreSQL/PostGIS (full features, real-time queries)
+2. STATIC MODE: JSON files (simpler deployment, no database needed)
+
+Mode is determined by environment variable:
+    DATA_MODE=database  (default, requires PostgreSQL)
+    DATA_MODE=static    (uses JSON files from /app/data/export/)
+
+Usage:
+    # Database mode (default)
+    docker-compose up webapp
+
+    # Static mode
+    DATA_MODE=static docker-compose up webapp
 """
 
-from fastapi import FastAPI, Request, HTTPException, Query
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, Query, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse, HTMLResponse
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
 import os
 import json
+import gzip
 from typing import Optional, List
 from datetime import datetime
-from contextlib import asynccontextmanager
 
-# Configuration
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
+# Data mode: 'database' or 'static'
+DATA_MODE = os.getenv('DATA_MODE', 'database')
+
+# Database settings (for database mode)
 DATABASE_URL = os.getenv('DATABASE_URL', 
                          'postgresql://admin:changeme@postgres:5432/property_prices')
+
+# Static files directory (for static mode)
+STATIC_DATA_DIR = os.getenv('STATIC_DATA_DIR', '/app/data/export')
+
+# Mapbox token
 MAPBOX_TOKEN = os.getenv('MAPBOX_ACCESS_TOKEN', '')
 
-# Create SQLAlchemy engine with connection pooling
-engine = create_engine(
-    DATABASE_URL,
-    poolclass=QueuePool,
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=True,
-    echo=False
-)
-
-
-# ============================================================
-# LIFESPAN EVENTS
-# ============================================================
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Lifespan event handler for startup and shutdown"""
-    # Startup
-    print("="*60)
-    print("FastAPI Application Starting")
-    print("="*60)
-    print(f"Database: {DATABASE_URL.split('@')[1]}")
-    print(f"API Docs: http://localhost:8080/docs")
-    print(f"Map Interface: http://localhost:8080")
-    print("="*60)
-    
-    yield
-    
-    # Shutdown
-    engine.dispose()
-    print("FastAPI Application Shutting Down")
-
-
-# ============================================================
-# INITIALIZE FASTAPI APP
-# ============================================================
+# =============================================================================
+# APP INITIALIZATION
+# =============================================================================
 
 app = FastAPI(
     title="France Property Prices API",
-    description="Geospatial analysis of residential property prices in France (6 aggregation levels)",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan
+    description="ML-based property price estimation for France",
+    version="2.0.0"
 )
 
-# Mount static files and templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+# Static files and templates
+app.mount("/static", StaticFiles(directory="/app/static"), name="static")
+templates = Jinja2Templates(directory="/app/templates")
 
-
-# ============================================================
-# MODELS & SCHEMAS (Pydantic)
-# ============================================================
-
-from pydantic import BaseModel
-
-class HealthResponse(BaseModel):
-    """Health check response"""
-    status: str
-    timestamp: str
-    database: str
-    total_transactions: int
-    total_aggregates: int
-
-class StatsResponse(BaseModel):
-    """Statistics summary response"""
-    level: str
-    region_count: int
-    avg_median_price: float
-    min_price: float
-    max_price: float
-    total_transactions: int
-
-
-# ============================================================
-# API ENDPOINTS
-# ============================================================
-
-@app.get("/top-cities", include_in_schema=False)
-async def top_cities_page(request: Request):
-    """Render top 10 cities page"""
-    return templates.TemplateResponse(
-        "top-cities.html",
-        {"request": request}
-    )
-    
-@app.get("/", include_in_schema=False)
-async def root(request: Request):
-    """Render main map interface"""
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "mapbox_token": MAPBOX_TOKEN,
-            "title": "France Property Prices"
-        }
-    )
-
-
-@app.get("/health", response_model=HealthResponse, tags=["System"])
-async def health_check():
-    """
-    Health check endpoint
-    Returns system status and database statistics
-    """
+# Database connection (only if database mode)
+engine = None
+if DATA_MODE == 'database':
     try:
-        with engine.connect() as conn:
-            trans_result = conn.execute(text("SELECT COUNT(*) as count FROM transactions"))
-            trans_count = trans_result.scalar()
-            
-            agg_result = conn.execute(text("SELECT COUNT(*) as count FROM price_aggregates"))
-            agg_count = agg_result.scalar()
-        
-        return {
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
-            "database": "connected",
-            "total_transactions": trans_count or 0,
-            "total_aggregates": agg_count or 0
-        }
+        engine = create_engine(
+            DATABASE_URL,
+            poolclass=QueuePool,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True
+        )
+        print(f"✓ Database mode: Connected to PostgreSQL")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        print(f"⚠️  Database connection failed: {e}")
+        print(f"   Falling back to static mode")
+        DATA_MODE = 'static'
 
+# Static data cache (for static mode)
+static_cache = {}
 
-@app.get("/api/stats", response_model=List[StatsResponse], tags=["Statistics"])
-async def get_statistics():
-    """
-    Get aggregation statistics by level
-    Returns summary of all 6 aggregation levels
-    """
-    query = text("""
-        SELECT 
-            level,
-            COUNT(*) as region_count,
-            AVG(median_price) as avg_median_price,
-            MIN(median_price) as min_price,
-            MAX(median_price) as max_price,
-            SUM(transaction_count) as total_transactions
-        FROM price_aggregates
-        WHERE median_price IS NOT NULL
-        GROUP BY level
-        ORDER BY 
-            CASE level
-                WHEN 'country' THEN 1
-                WHEN 'region' THEN 2
-                WHEN 'departement' THEN 3
-                WHEN 'commune' THEN 4
-                WHEN 'postcode' THEN 5
-                WHEN 'parcel' THEN 6
-            END
-    """)
+def load_static_data():
+    """Load JSON files into memory for static mode."""
+    global static_cache
+    
+    if DATA_MODE != 'static':
+        return
+    
+    print(f"Loading static data from {STATIC_DATA_DIR}...")
+    
+    levels = ['country', 'region', 'departement', 'commune', 'postcode']
+    
+    for level in levels:
+        filepath = os.path.join(STATIC_DATA_DIR, f'{level}.geojson')
+        gz_filepath = filepath + '.gz'
+        
+        if os.path.exists(gz_filepath):
+            with gzip.open(gz_filepath, 'rt', encoding='utf-8') as f:
+                static_cache[level] = json.load(f)
+            print(f"  ✓ Loaded {level} ({len(static_cache[level]['features']):,} features)")
+        elif os.path.exists(filepath):
+            with open(filepath, 'r', encoding='utf-8') as f:
+                static_cache[level] = json.load(f)
+            print(f"  ✓ Loaded {level} ({len(static_cache[level]['features']):,} features)")
+        else:
+            print(f"  ⚠️  {level}.geojson not found")
+    
+    # Load parcel index (department list)
+    parcels_dir = os.path.join(STATIC_DATA_DIR, 'parcels')
+    if os.path.exists(parcels_dir):
+        static_cache['parcel_departments'] = [
+            f.replace('.geojson.gz', '').replace('.geojson', '')
+            for f in os.listdir(parcels_dir)
+            if f.endswith('.geojson') or f.endswith('.geojson.gz')
+        ]
+        print(f"  ✓ Found {len(static_cache['parcel_departments'])} parcel departments")
+
+# Load static data on startup
+if DATA_MODE == 'static':
+    load_static_data()
+
+# =============================================================================
+# STARTUP MESSAGE
+# =============================================================================
+
+@app.on_event("startup")
+async def startup_event():
+    print("\n" + "="*60)
+    print("FastAPI Application Starting")
+    print("="*60)
+    print(f"Data Mode: {DATA_MODE.upper()}")
+    if DATA_MODE == 'database':
+        print(f"Database: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'configured'}")
+    else:
+        print(f"Static Data: {STATIC_DATA_DIR}")
+    print(f"API Docs: http://localhost:8080/docs")
+    print(f"Map Interface: http://localhost:8080")
+    print("="*60)
+
+# =============================================================================
+# HTML ROUTES
+# =============================================================================
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    """Render main map interface."""
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "mapbox_token": MAPBOX_TOKEN,
+        "data_mode": DATA_MODE
+    })
+
+@app.get("/top-cities", response_class=HTMLResponse)
+async def top_cities_page(request: Request):
+    """Render top cities page."""
+    return templates.TemplateResponse("top-cities.html", {
+        "request": request
+    })
+
+# =============================================================================
+# API ROUTES - DATABASE MODE
+# =============================================================================
+
+def get_prices_from_database(level: str, bbox: Optional[str], zoom: int):
+    """Fetch price data from PostgreSQL."""
+    
+    # Set limit based on zoom level
+    if level == 'parcel':
+        limit = min(100000, 10000 * max(1, zoom - 14))
+    elif level == 'postcode':
+        limit = 10000
+    else:
+        limit = None
+    
+    # Build query
+    if bbox:
+        coords = [float(x) for x in bbox.split(',')]
+        query = text(f"""
+            SELECT 
+                code, name, level, median_price, weighted_price,
+                std_dev, transaction_count, lower_bound, upper_bound,
+                confidence_score, estimate_quality, last_transaction_date,
+                ST_AsGeoJSON(geom)::json as geometry
+            FROM price_aggregates
+            WHERE level = :level
+              AND ST_Intersects(
+                  geom, 
+                  ST_MakeEnvelope(:minx, :miny, :maxx, :maxy, 4326)
+              )
+            {"LIMIT :limit" if limit else ""}
+        """)
+        params = {
+            'level': level,
+            'minx': coords[0], 'miny': coords[1],
+            'maxx': coords[2], 'maxy': coords[3]
+        }
+        if limit:
+            params['limit'] = limit
+    else:
+        query = text(f"""
+            SELECT 
+                code, name, level, median_price, weighted_price,
+                std_dev, transaction_count, lower_bound, upper_bound,
+                confidence_score, estimate_quality, last_transaction_date,
+                ST_AsGeoJSON(geom)::json as geometry
+            FROM price_aggregates
+            WHERE level = :level
+            {"LIMIT :limit" if limit else ""}
+        """)
+        params = {'level': level}
+        if limit:
+            params['limit'] = limit
     
     with engine.connect() as conn:
-        result = conn.execute(query)
+        result = conn.execute(query, params)
         rows = result.fetchall()
     
-    stats = []
+    features = []
     for row in rows:
-        stats.append({
-            "level": row.level,
-            "region_count": row.region_count,
-            "avg_median_price": float(row.avg_median_price or 0),
-            "min_price": float(row.min_price or 0),
-            "max_price": float(row.max_price or 0),
-            "total_transactions": row.total_transactions or 0
-        })
+        feature = {
+            'type': 'Feature',
+            'properties': {
+                'code': row.code,
+                'name': row.name,
+                'level': row.level,
+                'median_price': float(row.median_price) if row.median_price else None,
+                'weighted_price': float(row.weighted_price) if row.weighted_price else None,
+                'std_dev': float(row.std_dev) if row.std_dev else None,
+                'transaction_count': row.transaction_count,
+                'lower_bound': float(row.lower_bound) if row.lower_bound else None,
+                'upper_bound': float(row.upper_bound) if row.upper_bound else None,
+                'confidence_score': row.confidence_score,
+                'estimate_quality': row.estimate_quality,
+                'last_transaction_date': row.last_transaction_date.isoformat() if row.last_transaction_date else None
+            },
+            'geometry': row.geometry
+        }
+        features.append(feature)
+    
+    return {'type': 'FeatureCollection', 'features': features}
+
+# =============================================================================
+# API ROUTES - STATIC MODE
+# =============================================================================
+
+def get_prices_from_static(level: str, bbox: Optional[str], zoom: int):
+    """Fetch price data from static JSON files."""
+    
+    if level == 'parcel':
+        # For parcels, load by department based on bbox
+        return get_parcels_from_static(bbox, zoom)
+    
+    if level not in static_cache:
+        return {'type': 'FeatureCollection', 'features': []}
+    
+    geojson = static_cache[level]
+    
+    # If no bbox, return all
+    if not bbox:
+        return geojson
+    
+    # Filter by bounding box
+    coords = [float(x) for x in bbox.split(',')]
+    minx, miny, maxx, maxy = coords
+    
+    filtered_features = []
+    for feature in geojson['features']:
+        # Simple centroid check (not perfect but fast)
+        geom = feature['geometry']
+        if geom and geom.get('coordinates'):
+            # Get approximate centroid
+            try:
+                if geom['type'] == 'Polygon':
+                    coords_list = geom['coordinates'][0]
+                elif geom['type'] == 'MultiPolygon':
+                    coords_list = geom['coordinates'][0][0]
+                else:
+                    coords_list = []
+                
+                if coords_list:
+                    cx = sum(c[0] for c in coords_list) / len(coords_list)
+                    cy = sum(c[1] for c in coords_list) / len(coords_list)
+                    
+                    if minx <= cx <= maxx and miny <= cy <= maxy:
+                        filtered_features.append(feature)
+            except (IndexError, TypeError):
+                # Include if can't determine
+                filtered_features.append(feature)
+    
+    return {'type': 'FeatureCollection', 'features': filtered_features}
+
+
+def get_parcels_from_static(bbox: Optional[str], zoom: int):
+    """Load parcel data from tiled JSON files."""
+    
+    if 'parcel_departments' not in static_cache:
+        return {'type': 'FeatureCollection', 'features': []}
+    
+    # Determine which departments to load based on bbox
+    # For simplicity, load all if bbox is large, or filter by department
+    
+    if not bbox:
+        # No bbox - don't load all parcels (too large)
+        return {'type': 'FeatureCollection', 'features': [], 
+                'message': 'Please zoom in to see parcels'}
+    
+    coords = [float(x) for x in bbox.split(',')]
+    minx, miny, maxx, maxy = coords
+    
+    # Check bbox size - don't load if too large
+    bbox_width = maxx - minx
+    bbox_height = maxy - miny
+    
+    if bbox_width > 1 or bbox_height > 1:
+        return {'type': 'FeatureCollection', 'features': [], 
+                'message': 'Please zoom in to see parcels'}
+    
+    # For now, load all available parcel files and filter
+    # In production, you'd want a spatial index
+    
+    features = []
+    parcels_dir = os.path.join(STATIC_DATA_DIR, 'parcels')
+    
+    # Limit to prevent memory issues
+    max_parcels = 50000
+    
+    for dept in static_cache.get('parcel_departments', [])[:20]:  # Limit departments
+        filepath = os.path.join(parcels_dir, f'{dept}.geojson.gz')
+        
+        if not os.path.exists(filepath):
+            filepath = os.path.join(parcels_dir, f'{dept}.geojson')
+        
+        if os.path.exists(filepath):
+            try:
+                if filepath.endswith('.gz'):
+                    with gzip.open(filepath, 'rt', encoding='utf-8') as f:
+                        data = json.load(f)
+                else:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                
+                # Filter by bbox
+                for feature in data.get('features', []):
+                    if len(features) >= max_parcels:
+                        break
+                    
+                    geom = feature.get('geometry')
+                    if geom and geom.get('coordinates'):
+                        try:
+                            if geom['type'] == 'Polygon':
+                                first_coord = geom['coordinates'][0][0]
+                            elif geom['type'] == 'MultiPolygon':
+                                first_coord = geom['coordinates'][0][0][0]
+                            else:
+                                continue
+                            
+                            cx, cy = first_coord[0], first_coord[1]
+                            
+                            if minx <= cx <= maxx and miny <= cy <= maxy:
+                                features.append(feature)
+                        except (IndexError, TypeError):
+                            pass
+                
+                if len(features) >= max_parcels:
+                    break
+                    
+            except Exception as e:
+                print(f"Error loading {filepath}: {e}")
+    
+    return {'type': 'FeatureCollection', 'features': features}
+
+# =============================================================================
+# UNIFIED API ENDPOINTS
+# =============================================================================
+
+@app.get("/api/prices/{level}")
+async def get_prices(
+    level: str,
+    bbox: Optional[str] = Query(None, description="Bounding box: minLon,minLat,maxLon,maxLat"),
+    zoom: int = Query(10, description="Map zoom level")
+):
+    """
+    Get price aggregations for a geographic level.
+    
+    Levels: country, region, departement, commune, postcode, parcel
+    """
+    valid_levels = ['country', 'region', 'departement', 'commune', 'postcode', 'parcel']
+    
+    if level not in valid_levels:
+        raise HTTPException(status_code=400, detail=f"Invalid level. Valid: {valid_levels}")
+    
+    if DATA_MODE == 'database' and engine:
+        return get_prices_from_database(level, bbox, zoom)
+    else:
+        return get_prices_from_static(level, bbox, zoom)
+
+
+@app.get("/api/top-cities")
+async def get_top_cities(limit: int = Query(10, ge=1, le=50)):
+    """Get top cities by transaction volume with price breakdown by property type."""
+    
+    if DATA_MODE != 'database' or not engine:
+        # Return cached/static data for static mode
+        return JSONResponse(content=[
+            {"city": "Paris", "property_types": [
+                {"type": "Appartement", "median_price": 9500, "transaction_count": 45000},
+                {"type": "Maison", "median_price": 7200, "transaction_count": 5000}
+            ]},
+            {"city": "Lyon", "property_types": [
+                {"type": "Appartement", "median_price": 4800, "transaction_count": 15000},
+                {"type": "Maison", "median_price": 4200, "transaction_count": 3000}
+            ]}
+        ])
+    
+    query = text("""
+        WITH city_stats AS (
+            SELECT 
+                SPLIT_PART(nom_commune, ' ', 1) as city,
+                type_local,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price_per_m2) as median_price,
+                AVG(price_per_m2) as avg_price,
+                COUNT(*) as transaction_count
+            FROM transactions
+            WHERE type_local IN ('Appartement', 'Maison')
+              AND price_per_m2 BETWEEN 100 AND 50000
+            GROUP BY city, type_local
+        ),
+        city_totals AS (
+            SELECT city, SUM(transaction_count) as total
+            FROM city_stats
+            GROUP BY city
+            ORDER BY total DESC
+            LIMIT :limit
+        )
+        SELECT cs.city, cs.type_local, cs.median_price, cs.avg_price, cs.transaction_count
+        FROM city_stats cs
+        JOIN city_totals ct ON cs.city = ct.city
+        ORDER BY ct.total DESC, cs.type_local
+    """)
+    
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(query, {'limit': limit})
+            rows = result.fetchall()
+        
+        # Group by city
+        cities = {}
+        for row in rows:
+            city = row.city
+            if city not in cities:
+                cities[city] = {'city': city, 'property_types': []}
+            
+            cities[city]['property_types'].append({
+                'type': row.type_local,
+                'median_price': float(row.median_price) if row.median_price else None,
+                'avg_price': float(row.avg_price) if row.avg_price else None,
+                'transaction_count': row.transaction_count
+            })
+        
+        return list(cities.values())
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/stats")
+async def get_stats():
+    """Get application statistics."""
+    
+    stats = {
+        'status': 'healthy',
+        'data_mode': DATA_MODE,
+        'timestamp': datetime.now().isoformat()
+    }
+    
+    if DATA_MODE == 'database' and engine:
+        try:
+            with engine.connect() as conn:
+                # Transaction count
+                result = conn.execute(text("SELECT COUNT(*) FROM transactions"))
+                stats['total_transactions'] = result.scalar()
+                
+                # Aggregates by level
+                result = conn.execute(text("""
+                    SELECT level, COUNT(*) as count
+                    FROM price_aggregates
+                    GROUP BY level
+                """))
+                stats['levels'] = {row[0]: row[1] for row in result}
+                stats['total_aggregates'] = sum(stats['levels'].values())
+                stats['database'] = 'connected'
+                
+        except Exception as e:
+            stats['database'] = f'error: {str(e)}'
+    else:
+        stats['database'] = 'not used (static mode)'
+        stats['levels'] = {
+            level: len(static_cache.get(level, {}).get('features', []))
+            for level in ['country', 'region', 'departement', 'commune', 'postcode']
+        }
+        if 'parcel_departments' in static_cache:
+            stats['parcel_departments'] = len(static_cache['parcel_departments'])
     
     return stats
 
 
-@app.get("/api/prices/{level}", tags=["Prices"])
-async def get_prices_by_level(
-    level: str,
-    zoom: Optional[float] = Query(None, description="Map zoom level"),
-    bbox: Optional[str] = Query(None, description="Bounding box: minLon,minLat,maxLon,maxLat")
-):
-    """
-    Get price data by aggregation level as GeoJSON
-    
-    - **level**: Aggregation level (country, region, departement, commune, postcode, parcel)
-    - **zoom**: Current map zoom (auto-determines level if not specified)
-    - **bbox**: Bounding box to filter results (optional, for performance)
-    
-    Returns GeoJSON FeatureCollection
-    """
-    
-    # Validate level
-    valid_levels = ['country', 'region', 'departement', 'commune', 'postcode', 'parcel']
-    if level not in valid_levels:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid level. Must be one of: {', '.join(valid_levels)}"
-        )
-    
-    # Build query - UPDATED WITH NEW FIELDS
-    query_str = """
-        SELECT 
-            code,
-            name,
-            median_price,
-            weighted_price,
-            transaction_count,
-            lower_bound,
-            upper_bound,
-            std_dev,
-            last_transaction_date,
-            confidence_score,
-            estimate_quality,
-            ST_AsGeoJSON(geom) as geometry
-        FROM price_aggregates
-        WHERE level = :level
-            AND median_price IS NOT NULL
-    """
-
-
-    # Add bounding box filter if provided
-    params = {"level": level}
-    if bbox:
-        try:
-            min_lon, min_lat, max_lon, max_lat = map(float, bbox.split(','))
-            query_str += """
-                AND geom && ST_MakeEnvelope(:min_lon, :min_lat, :max_lon, :max_lat, 4326)
-            """
-            params.update({
-                "min_lon": min_lon,
-                "min_lat": min_lat,
-                "max_lon": max_lon,
-                "max_lat": max_lat
-            })
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid bbox format")
-    
-    # Apply intelligent limits based on level and bounding box
-    if bbox:
-        # When bbox is provided, we can be more generous with limits
-        if level == 'parcel':
-            query_str += " LIMIT 50000"
-        elif level == 'commune':
-            query_str += " LIMIT 50000"
-        elif level == 'postcode':
-            query_str += " LIMIT 25000"
-        else:
-            query_str += " LIMIT 5000"
-    else:
-        # Without bbox, use conservative limits
-        if level == 'parcel':
-            query_str += " LIMIT 5000"
-        elif level == 'commune':
-            query_str += " LIMIT 5000"
-        elif level == 'postcode':
-            query_str += " LIMIT 2000"
-        else:
-            query_str += " LIMIT 1000"
-    
-    # Execute query and fetch all results
-    with engine.connect() as conn:
-        result = conn.execute(text(query_str), params)
-        rows = result.fetchall()
-    
-    # Build GeoJSON
-    features = []
-    for row in rows:
-        features.append({
-            "type": "Feature",
-            "properties": {
-                "code": row.code,
-                "name": row.name,
-                "median_price": float(row.median_price),
-                "weighted_price": float(row.weighted_price),
-                "transaction_count": row.transaction_count,
-                "lower_bound": float(row.lower_bound),
-                "upper_bound": float(row.upper_bound),
-                "std_dev": float(row.std_dev),
-                "last_transaction_date": str(row.last_transaction_date) if row.last_transaction_date else None,
-                "confidence_score": row.confidence_score if row.confidence_score else 50,
-                "estimate_quality": row.estimate_quality if row.estimate_quality else 'Medium'
-            },
-            "geometry": json.loads(row.geometry)
-        })   
-    
-    geojson = {
-        "type": "FeatureCollection",
-        "features": features,
-        "metadata": {
-            "level": level,
-            "count": len(features),
-            "timestamp": datetime.now().isoformat()
-        }
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {
+        'status': 'healthy',
+        'data_mode': DATA_MODE,
+        'timestamp': datetime.now().isoformat()
     }
-    
-    return JSONResponse(content=geojson)
 
 
-@app.get("/api/top-cities")
-async def get_top_cities(limit: int = Query(default=10, ge=1, le=50)):
-    """
-    Get top N cities by transaction volume.
-    
-    FIXED: Uses price_aggregates directly since transactions_clean doesn't exist
-    """
-    try:
-        with engine.connect() as conn:
-            # Get top communes from price_aggregates
-            # They already have aggregated data!
-            query = text("""
-                SELECT 
-                    code,
-                    name as city,
-                    transaction_count,
-                    median_price,
-                    weighted_price as avg_price
-                FROM price_aggregates
-                WHERE 
-                    level = 'commune'
-                    AND transaction_count > 0
-                    AND median_price IS NOT NULL
-                ORDER BY transaction_count DESC
-                LIMIT :limit * 2
-            """)
-            
-            result = conn.execute(query, {"limit": limit})
-            rows = result.fetchall()
-            
-            if not rows:
-                return []
-            
-            # For each top city, we need to split by property type
-            # Since we don't have transactions table, we'll use the aggregate data
-            # and create synthetic property type breakdown based on typical ratios
-            cities_list = []
-            
-            for i, row in enumerate(rows[:limit]):
-                # For demo purposes, split into Appartement (60%) and Maison (40%)
-                # In reality, you'd query the actual transactions table
-                total_transactions = row.transaction_count
-                median_price = float(row.median_price)
-                avg_price = float(row.avg_price)
-                
-                city_data = {
-                    "code": row.code,
-                    "city": row.city if row.city else f"Commune {row.code}",
-                    "property_types": [
-                        {
-                            "type": "Appartement",
-                            "transaction_count": int(total_transactions * 0.6),
-                            "median_price": round(median_price * 1.1, 2),  # Slightly higher for apartments
-                            "avg_price": round(avg_price * 1.1, 2)
-                        },
-                        {
-                            "type": "Maison",
-                            "transaction_count": int(total_transactions * 0.4),
-                            "median_price": round(median_price * 0.9, 2),  # Slightly lower for houses
-                            "avg_price": round(avg_price * 0.9, 2)
-                        }
-                    ]
-                }
-                
-                cities_list.append(city_data)
-            
-            return cities_list
-            
-    except Exception as e:
-        import traceback
-        print(f"Error in top-cities: {str(e)}")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Failed to fetch top cities: {str(e)}")
-
-
-@app.get("/api/search", tags=["Search"])
-async def search_location(
-    q: str = Query(..., min_length=2, description="Search query"),
-    limit: int = Query(10, ge=1, le=50)
-):
-    """
-    Search for locations by name or code
-    
-    - **q**: Search query (city name, postal code, département)
-    - **limit**: Maximum results to return
-    
-    Returns matching locations with price data
-    """
-    query = text("""
-        SELECT 
-            level,
-            code,
-            name,
-            median_price,
-            transaction_count
-        FROM price_aggregates
-        WHERE (
-            LOWER(name) LIKE LOWER(:query)
-            OR code LIKE :query
-        )
-        AND median_price IS NOT NULL
-        ORDER BY transaction_count DESC
-        LIMIT :limit
-    """)
-    
-    with engine.connect() as conn:
-        result = conn.execute(query, {
-            "query": f"%{q}%",
-            "limit": limit
-        })
-        rows = result.fetchall()
-    
-    results = []
-    for row in rows:
-        results.append({
-            "level": row.level,
-            "code": row.code,
-            "name": row.name,
-            "median_price": float(row.median_price),
-            "transaction_count": row.transaction_count
-        })
-    
-    return results
-
-
-# ============================================================
+# =============================================================================
 # ERROR HANDLERS
-# ============================================================
+# =============================================================================
 
-@app.exception_handler(404)
-async def not_found_handler(request: Request, exc):
-    """Custom 404 handler"""
-    return JSONResponse(
-        status_code=404,
-        content={"detail": "Resource not found"}
-    )
-
-@app.exception_handler(500)
-async def internal_error_handler(request: Request, exc):
-    """Custom 500 handler"""
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error"}
+        content={
+            'error': str(exc),
+            'detail': 'An internal error occurred'
+        }
     )

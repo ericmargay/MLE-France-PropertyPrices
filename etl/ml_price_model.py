@@ -85,7 +85,7 @@ warnings.filterwarnings('ignore')
 
 # Reference dates
 DATA_END_DATE = datetime(2023, 12, 31)      # End of transaction data
-PREDICTION_DATE = datetime(2025, 1, 1)       # Target prediction date
+PREDICTION_DATE = datetime(2026, 1, 1)       # Target prediction date (January 2026)
 
 # Model parameters
 LGBM_PARAMS = {

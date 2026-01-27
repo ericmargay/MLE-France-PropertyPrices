@@ -1,35 +1,168 @@
-# France Property Prices - Interactive Map 🗺️
+# France Property Prices - Interactive ML Map 🗺️
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue.svg)](https://www.postgresql.org/)
-[![PostGIS](https://img.shields.io/badge/PostGIS-3.3-green.svg)](https://postgis.net/)
+[![LightGBM](https://img.shields.io/badge/LightGBM-ML-green.svg)](https://lightgbm.readthedocs.io/)
 
-Machine Learning Engineer Challenge: Geospatial analysis and visualization of residential property prices in France.
+**Machine Learning Engineer Challenge**: Geospatial ML-based price estimation and visualization of residential property prices in France.
 
 ---
 
 ## 🎯 Project Overview
 
-This project analyzes **1,008,568** French residential property transactions from 2023 to estimate market prices per square meter (€/m²) across **6 hierarchical aggregation levels**:
+This project uses **Machine Learning** to estimate current property prices (€/m²) from **1,008,568** historical transactions (2023), displayed across **6 hierarchical geographic levels**:
 
-1. 🇫🇷 **Country** - Metropolitan France (1 aggregate)
-2. 🗺️ **Region** - 13 administrative regions
-3. 📍 **Département** - 96 departments
-4. 🏘️ **Commune** - 31,056 municipalities
-5. 📮 **Postcode** - 6,044 postal zones
-6. 🏗️ **Building Plots** - 400,000 cadastral parcels
+| Level | Count | Description |
+|-------|-------|-------------|
+| 🇫🇷 **Country** | 1 | Metropolitan France |
+| 🗺️ **Region** | 17 | Administrative regions |
+| 📍 **Département** | 95 | Departments |
+| 🏘️ **Commune** | 31,056 | Municipalities |
+| 📮 **Postcode** | 5,848 | Postal zones |
+| 🏗️ **Parcel** | 500,000+ | Building footprints (cadastre) |
 
 ### Key Features
 
-- ✅ **Interactive choropleth map** with zoom-based level transitions
-- ✅ **Confidence scoring** based on transaction volume, volatility, and freshness
-- ✅ **Smart price estimation** with adjusted confidence intervals
-- ✅ **Top 10 cities analysis** by property type
-- ✅ **Performance-optimized** with bounding box filtering (handles 400k+ parcels)
-- ✅ **RESTful API** with full documentation
+- ✅ **ML-based price estimation** with LightGBM gradient boosting
+- ✅ **Temporal trend adjustment** (extrapolates to 2026)
+- ✅ **Hierarchical smoothing** (Bayesian-inspired for sparse data)
+- ✅ **Confidence scoring** with prediction intervals
+- ✅ **Real building footprints** from French cadastre
+- ✅ **Interactive map** with zoom-based level transitions
+- ✅ **Two deployment modes**: Database or Static JSON
 
 ---
+
+## 🤖 Machine Learning Methodology
+
+### The Challenge
+
+Historical transaction data (2023) needs to estimate **current prices** (2026). Traditional statistical approaches fail because:
+- Tree-based models **cannot extrapolate** beyond training data
+- Time-weighting with `datetime.now()` produces meaningless weights
+- Sparse areas have unreliable estimates
+
+### Our Solution: Three-Component Model
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    ML PRICE ESTIMATION                               │
+│                                                                      │
+│   FINAL PRICE = SPATIAL_MODEL × TEMPORAL_ADJUSTMENT                 │
+│                 (smoothed with hierarchical prior)                   │
+│                                                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   1. SPATIAL MODEL (LightGBM Gradient Boosting)                     │
+│      ├─ Learns: WHERE is expensive vs cheap                         │
+│      ├─ Features: lat, lon, department, property type, surface      │
+│      ├─ Cross-validated: 5-fold CV with R² metric                   │
+│      └─ Does NOT extrapolate in time (trees can't!)                 │
+│                                                                      │
+│   2. TEMPORAL MODEL (Linear Regression)                             │
+│      ├─ Learns: HOW prices change over time                         │
+│      ├─ Model: log(price) = α + β×year + ε                          │
+│      ├─ β = annual trend coefficient (estimated from data)          │
+│      └─ Extrapolates from 2023 → 2025                               │
+│                                                                      │
+│   3. HIERARCHICAL SMOOTHING (Empirical Bayes)                       │
+│      ├─ Problem: Sparse zones have high variance                    │
+│      ├─ Solution: "Shrink" toward parent region average             │
+│      ├─ Weight = min(1, n_transactions / 50)                        │
+│      └─ Postcode ← Commune ← Département ← Region ← Country         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Model Performance
+
+| Metric | Value | Description |
+|--------|-------|-------------|
+| **CV R²** | ~0.51 | Explains 51% of price variance |
+| **CV MAPE** | ~40% | Mean absolute percentage error |
+| **Annual Trend** | Variable | Estimated from data (not assumed) |
+
+### Feature Importance
+
+1. **Latitude** - North/South position (Paris effect)
+2. **Log Surface** - Property size
+3. **Department** - Regional market effects
+4. **Property Type** - Apartment vs House
+5. **Longitude** - East/West position
+
+### Confidence Scoring (0-100)
+
+```python
+confidence = model_uncertainty (0-40) + data_volume (0-40) + freshness (0-20)
+
+# Model Uncertainty (prediction interval width)
+- Narrow interval (<15%): 40 pts
+- Wide interval (>70%): 5 pts
+
+# Data Volume (transaction count in zone)
+- ≥100 transactions: 40 pts
+- <5 transactions: 5 pts
+
+# Freshness (days since last transaction)
+- <180 days: 20 pts
+- >730 days: 4 pts
+```
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Docker & Docker Compose
+- 10GB disk space
+- Mapbox access token (free at [mapbox.com](https://mapbox.com))
+
+### 1. Clone & Configure
+
+```bash
+git clone https://github.com/ericmargay/MLE-France-Property-Prices
+cd MLE-France-Property-Prices
+
+# Create .env file
+cat > .env << EOF
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=changeme
+POSTGRES_DB=property_prices
+DATABASE_URL=postgresql://admin:changeme@postgres:5432/property_prices
+MAPBOX_ACCESS_TOKEN=pk.your_token_here
+EOF
+```
+
+### 2. Build & Start
+
+```bash
+# Build containers
+docker-compose build
+
+# Start database
+docker-compose up -d postgres
+sleep 15  # Wait for PostgreSQL
+
+# Run ML pipeline (includes parcel-level aggregation)
+docker-compose run --rm etl python regenerate_with_ml.py
+
+# Start web app
+docker-compose up -d webapp
+
+# Open browser
+open http://localhost:8080
+```
+
+### 3. (Optional) Export for Static Hosting
+
+```bash
+# Export all levels to JSON files
+docker-compose run --rm etl python export_to_json.py
+
+# Copy to local machine
+docker cp $(docker-compose ps -q etl):/app/static/data ./static/data
+```
 
 ---
 
@@ -38,261 +171,87 @@ This project analyzes **1,008,568** French residential property transactions fro
 ```
 france-property-prices/
 ├── app/                          # FastAPI web application
-│   ├── main.py                   # API endpoints & routes
-│   ├── requirements.txt          # Python dependencies
-│   ├── Dockerfile                # Web service container
+│   ├── main.py                   # API endpoints (DB + Static modes)
 │   ├── static/
-│   │   ├── css/
-│   │   │   └── style.css         # UI styling
-│   │   └── js/
-│   │       └── map.js            # Map visualization logic
+│   │   ├── css/style.css
+│   │   ├── js/map.js
+│   │   └── data/                 # Exported JSON files (static mode)
 │   └── templates/
-│       ├── index.html            # Main map interface
-│       └── top-cities.html       # Top 10 cities page
+│       ├── index.html
+│       └── top-cities.html
 │
 ├── etl/                          # Data processing pipeline
-│   ├── process_data.py           # Main ETL orchestrator
-│   ├── data_loader.py            # DVF data downloader
-│   ├── data_cleaner.py           # Data validation & cleaning
-│   ├── spatial_aggregation.py   # Geospatial aggregation + confidence scoring
-│   ├── requirements.txt          # ETL dependencies
-│   └── Dockerfile                # ETL container
+│   ├── process_data.py           # Full ETL pipeline
+│   ├── regenerate_with_ml.py     # ML-only regeneration
+│   ├── ml_price_model.py         # LightGBM model implementation
+│   ├── spatial_aggregation.py    # Geographic aggregation
+│   ├── cadastre_downloader.py    # Building footprint downloader
+│   └── export_to_json.py         # Export for static hosting
 │
 ├── data/                         # Data storage (gitignored)
-│   ├── raw/                      # Original DVF CSV files
-│   │   └── dvf_2023.csv          # 1M+ transactions (auto-downloaded)
-│   ├── processed/                # Cleaned data
-│   │   └── transactions_clean.csv
-│   └── geometries/               # French administrative boundaries
-│       ├── regions.geojson       # 13 regions
-│       ├── departements.geojson  # 96 departments
-│       └── communes.geojson      # 31k+ municipalities
+│   ├── geometries/               # Administrative boundaries
+│   ├── cadastre/                 # Building footprints cache
+│   └── ml_price_model.joblib     # Trained model
 │
-├── postgres/                     # Database configuration
-│   ├── Dockerfile                # PostgreSQL + PostGIS image
-│   └── init.sql                  # Database initialization
-│
-├── docker-compose.yml            # Multi-container orchestration
-├── .env.example                  # Environment variables template
-├── .gitignore                    # Git exclusions
-└── README.md                     # This file
+├── docker-compose.yml
+└── README.md
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## 🌐 Deployment Options
 
-| Component | Technology | Version | Purpose |
-|-----------|-----------|---------|---------|
-| **Orchestration** | Docker Compose | 2.x | Multi-container management |
-| **Database** | PostgreSQL | 15 | Relational data storage |
-| **GIS Extension** | PostGIS | 3.3 | Spatial data & queries |
-| **Backend** | Python | 3.11+ | Data processing & API |
-| **Web Framework** | FastAPI | 0.104+ | RESTful API |
-| **Data Processing** | Pandas | 2.x | Data manipulation |
-| **Geospatial** | GeoPandas | 0.14+ | Spatial data processing |
-| **ORM** | SQLAlchemy | 2.x | Database interactions |
-| **Frontend** | Mapbox GL JS | 2.x | Map rendering |
+### Option A: Full Stack (Database)
 
----
+Best for: Dynamic updates, real-time queries, full parcel support
 
-## 🚀 Quick Run
-
-### 1. Clone Repository
+| Platform | Database | Free Tier | Setup Difficulty |
+|----------|----------|-----------|------------------|
+| **Railway** | PostgreSQL | $5/month credit | Easy |
+| **Render** | PostgreSQL | 90 days free | Easy |
+| **Fly.io** | PostgreSQL | 3GB free | Medium |
+| **Supabase** | PostgreSQL | 500MB free | Easy |
 
 ```bash
-git clone https://github.com/ericmargay/ML-Test-France-property-price
-cd ML-Test-France-property-price
+# Deploy to Railway
+railway login
+railway init
+railway up
 ```
 
-### 2. Configure Environment
+### Option B: Static JSON (Recommended for Demo)
+
+Best for: Free hosting, simple deployment, no database management
+
+| Platform | Cost | Setup |
+|----------|------|-------|
+| **Vercel** | Free | `vercel deploy` |
+| **Netlify** | Free | Drag & drop |
+| **GitHub Pages** | Free | Push to gh-pages |
 
 ```bash
-# Copy the environment text template and edit .env and add your Mapbox token
-nano .env
+# 1. Export data to JSON
+docker-compose run --rm etl python export_to_json.py
+
+# 2. Copy static files
+cp -r app/static ./deploy/
+cp -r app/templates ./deploy/
+
+# 3. Deploy to Vercel
+cd deploy
+vercel deploy
 ```
 
-**`.env` file:**
-```bash
-# Database Configuration
-POSTGRES_USER=admin
-POSTGRES_PASSWORD=changeme
-POSTGRES_DB=property_prices
-DATABASE_URL=postgresql://admin:changeme@postgres:5432/property_prices
+### File Sizes (Static Mode)
 
-# Mapbox Configuration
-MAPBOX_ACCESS_TOKEN=pk.eyJ1IjoieW91ci10b2tlbiJ9...
-```
-
-### 3. Build & Start Services
-
-```bash
-# Build all containers
-docker-compose build
-
-# Start database
-docker-compose up -d postgres
-
-# Wait for PostgreSQL to be ready (15 seconds)
-sleep 15
-
-# Verify database is running
-docker-compose ps
-```
-
-### 4. Run ETL Pipeline
-
-```bash
-# Execute complete ETL process (40-50 minutes)
-docker-compose run --rm etl python process_data.py
-```
-
-**Expected output:**
-```
-====================================================================
-FRANCE PROPERTY PRICES - ETL PIPELINE
-====================================================================
-
-Step 1/7: Downloading DVF 2023 data...
-✓ Downloaded 1,008,568 transactions (150 MB)
-
-Step 2/7: Cleaning data...
-✓ Removed 12,456 outliers
-✓ Validated 1,008,568 records
-
-Step 3/7: Aggregating by COUNTRY...
-✓ Created 1 country aggregate
-
-Step 4/7: Aggregating by REGION...
-✓ Created 13 region aggregates
-
-Step 5/7: Aggregating by DÉPARTEMENT...
-✓ Created 96 département aggregates
-
-Step 6/7: Aggregating by COMMUNE...
-✓ Created 31,056 commune aggregates
-
-Step 7/7: Aggregating by POSTCODE...
-✓ Created 6,044 postcode aggregates
-
-Step 8/7: Aggregating by PARCEL...
-✓ Created 400,000 building plot aggregates
-
-====================================================================
-✓ ETL PIPELINE COMPLETE - Total time: 45 minutes
-====================================================================
-```
-
-### 5. Start Web Application
-
-```bash
-# Start web service
-docker-compose up -d webapp
-
-# View logs
-docker-compose logs -f webapp
-
-# Access application
-open http://localhost:8080
-```
-
----
-
-## 📊 Data Pipeline Details
-
-### Phase 1: Data Acquisition
-- **Source**: [data.gouv.fr DVF 2023](https://www.data.gouv.fr/datasets/demandes-de-valeurs-foncieres/)
-- **Records**: 1,008,568 residential transactions
-- **Format**: CSV (150 MB compressed)
-- **Download time**: ~2 minutes
-
-### Phase 2: Data Cleaning
-```python
-# Filters applied:
-- Remove transactions without surface data
-- Filter price_per_m2 between €500 - €20,000/m²
-- Remove outliers using IQR method (1.5x IQR)
-- Validate coordinates within France bounds
-- Property types: Maison, Appartement only
-```
-
-### Phase 3: Spatial Aggregation
-
-For each level, we calculate:
-
-**Price Metrics:**
-- `median_price`: Robust central tendency
-- `weighted_price`: Time-decay weighted average (recent = higher weight)
-- `std_dev`: Price volatility
-- `lower_bound` / `upper_bound`: Confidence interval (adjusted by reliability)
-
-**Confidence Scoring (0-100):**
-```python
-confidence_score = volume_score + volatility_score + freshness_score
-
-# Volume Score (0-40 points)
-- 100+ transactions: 40 pts
-- 50-99: 35 pts
-- 20-49: 25 pts
-- 10-19: 15 pts
-- <10: 5 pts
-
-# Volatility Score (0-40 points)
-- CV < 10%: 40 pts (very consistent)
-- CV < 20%: 30 pts
-- CV < 35%: 18 pts
-- CV > 50%: 5 pts (very volatile)
-
-# Freshness Score (0-20 points)
-- < 30 days: 20 pts
-- < 90 days: 15 pts
-- < 180 days: 8 pts
-- > 180 days: 2 pts
-```
-
-**Quality Labels:**
-- **Very High** (85-100): Large sample, low volatility, recent data
-- **High** (70-84): Good reliability
-- **Medium** (55-69): Moderate confidence
-- **Low** (35-54): Limited data
-- **Very Low** (<35): Insufficient data
-
----
-
-## 🗺️ Using the Application
-
-### Main Map Interface
-
-1. **Zoom Levels**:
-   - Zoom 0-4: Country level
-   - Zoom 5-6: Region level
-   - Zoom 7-9: Département level
-   - Zoom 10-12: Commune level
-   - Zoom 13-14: Postcode level
-   - Zoom 15+: Building plots
-
-2. **Color Legend**:
-   - 🟦 Blue: Low prices (€500-2,000/m²)
-   - 🟩 Green: Medium (€2,000-4,000/m²)
-   - 🟨 Yellow: High (€4,000-7,000/m²)
-   - 🟧 Orange: Very High (€7,000-10,000/m²)
-   - 🟥 Red: Extreme (€10,000+/m²)
-
-3. **Popup Information**:
-   - Best price estimate
-   - Confidence interval
-   - Reliability score (⭐⭐⭐⭐⭐)
-   - Transaction volume
-   - Volatility
-   - Last transaction date
-
-### Top 10 Cities Page
-
-Navigate to `/top-cities` to view:
-- Cities ranked by transaction volume
-- Price breakdown by property type (Maison/Appartement)
-- Median and average prices
-- Transaction counts
+| Level | File | Size | Compressed |
+|-------|------|------|------------|
+| Country | country.json | 1 KB | - |
+| Region | region.json | 50 KB | - |
+| Département | departement.json | 200 KB | - |
+| Commune | commune.json | 15 MB | 3 MB |
+| Postcode | postcode.json | 5 MB | 1 MB |
+| Parcel | parcel/*.json | 200 MB | 40 MB |
 
 ---
 
@@ -303,233 +262,111 @@ Navigate to `/top-cities` to view:
 http://localhost:8080/api
 ```
 
-### Endpoints
-
-#### 1. Get Price Aggregates
+### Get Price Aggregates
 ```http
-GET /api/prices/{level}?bbox={minLon},{minLat},{maxLon},{maxLat}&zoom={zoom}
+GET /api/prices/{level}?bbox={minLon},{minLat},{maxLon},{maxLat}
 ```
 
-**Parameters:**
-- `level`: `country` | `region` | `departement` | `commune` | `postcode` | `parcel`
-- `bbox`: Bounding box (optional, recommended for performance)
-- `zoom`: Map zoom level (optional, auto-adjusts limits)
+**Levels**: `country`, `region`, `departement`, `commune`, `postcode`, `parcel`
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "properties": {
-        "code": "75",
-        "name": "Paris",
-        "median_price": 8500.50,
-        "weighted_price": 8650.20,
-        "transaction_count": 12345,
-        "lower_bound": 7800.00,
-        "upper_bound": 9200.00,
-        "confidence_score": 95,
-        "estimate_quality": "Very High",
-        "std_dev": 1200.50,
-        "last_transaction_date": "2023-12-15"
-      },
-      "geometry": { "type": "MultiPolygon", "coordinates": [...] }
-    }
-  ]
+  "features": [{
+    "type": "Feature",
+    "properties": {
+      "code": "75",
+      "name": "Paris",
+      "median_price": 9500.50,
+      "lower_bound": 8200.00,
+      "upper_bound": 10800.00,
+      "confidence_score": 92,
+      "estimate_quality": "Very High",
+      "transaction_count": 45000
+    },
+    "geometry": { "type": "MultiPolygon", "coordinates": [...] }
+  }]
 }
 ```
 
-#### 2. Get Top Cities
-```http
-GET /api/top-cities?limit={n}
-```
-
-**Response:**
-```json
-[
-  {
-    "city": "Paris",
-    "property_types": [
-      {
-        "type": "Appartement",
-        "median_price": 8500.50,
-        "avg_price": 8650.20,
-        "transaction_count": 12345
-      },
-      {
-        "type": "Maison",
-        "median_price": 6200.30,
-        "avg_price": 6400.10,
-        "transaction_count": 3456
-      }
-    ]
-  }
-]
-```
-
-#### 3. Get Statistics
+### Get Statistics
 ```http
 GET /api/stats
 ```
 
-**Response:**
-```json
-{
-  "status": "healthy",
-  "database": "connected",
-  "total_transactions": 1008568,
-  "total_aggregates": 437210,
-  "levels": {
-    "country": 1,
-    "region": 13,
-    "departement": 96,
-    "commune": 31056,
-    "postcode": 6044,
-    "parcel": 400000
-  }
-}
+### Health Check
+```http
+GET /health
 ```
 
-Full API documentation: http://localhost:8080/docs
+Full docs: http://localhost:8080/docs
 
 ---
 
-## 🧪 Testing
+## 📊 Data Sources
 
-### Verify Database
+| Source | URL | Description |
+|--------|-----|-------------|
+| **DVF 2023** | [data.gouv.fr](https://www.data.gouv.fr/datasets/demandes-de-valeurs-foncieres/) | 1M+ property transactions |
+| **Cadastre** | [cadastre.data.gouv.fr](https://cadastre.data.gouv.fr/) | Building footprints |
+| **Boundaries** | [france-geojson](https://github.com/gregoiredavid/france-geojson) | Administrative regions |
+| **Postcodes** | [OpenDataSoft](https://data.opendatasoft.com/) | Postal code polygons |
+
+---
+
+## 🧪 Verification
+
 ```bash
-# Check record counts
+# Check database aggregates
 docker exec -it france_property_db psql -U admin -d property_prices -c "
-SELECT 
-    level, 
-    COUNT(*) as count,
-    AVG(confidence_score)::int as avg_confidence
+SELECT level, COUNT(*) as zones, 
+       ROUND(AVG(median_price)) as avg_price,
+       ROUND(AVG(confidence_score)) as avg_conf
 FROM price_aggregates 
 GROUP BY level 
-ORDER BY 
-    CASE level
-        WHEN 'country' THEN 1
-        WHEN 'region' THEN 2
-        WHEN 'departement' THEN 3
-        WHEN 'commune' THEN 4
-        WHEN 'postcode' THEN 5
-        WHEN 'parcel' THEN 6
-    END;
-"
+ORDER BY CASE level
+    WHEN 'country' THEN 1 WHEN 'region' THEN 2
+    WHEN 'departement' THEN 3 WHEN 'commune' THEN 4
+    WHEN 'postcode' THEN 5 WHEN 'parcel' THEN 6
+END;"
 ```
 
-**Expected output:**
+**Expected Output**:
 ```
-   level     | count  | avg_confidence
--------------+--------+---------------
- country     |      1 |            95
- region      |     13 |            88
- departement |     96 |            78
- commune     |  31056 |            55
- postcode    |   6044 |            52
- parcel      | 400000 |            35
-```
-
-### Test API Endpoints
-```bash
-# Health check
-curl http://localhost:8080/health | jq
-
-# Get country data
-curl http://localhost:8080/api/prices/country | jq '.features[0].properties'
-
-# Get top cities
-curl http://localhost:8080/api/top-cities?limit=5 | jq '.[0]'
+   level     |  zones  | avg_price | avg_conf
+-------------+---------+-----------+----------
+ country     |       1 |     2489  |       57
+ region      |      17 |     2508  |       62
+ departement |      95 |     2286  |       63
+ commune     |  31,056 |     2572  |       56
+ postcode    |   5,848 |     2326  |       75
+ parcel      | 500,000 |     2500  |       45
 ```
 
----
-
-## 📈 Performance Optimizations
-
-### Database Indexes
-```sql
--- Spatial index for fast geographic queries
-CREATE INDEX idx_aggregates_geom ON price_aggregates USING GIST(geom);
-
--- Level + code composite index
-CREATE INDEX idx_aggregates_level_code ON price_aggregates(level, code);
-
--- Confidence filtering
-CREATE INDEX idx_aggregates_confidence ON price_aggregates(confidence_score);
-```
-
-### Bounding Box Filtering
-```python
-# Only load visible features (dramatically improves performance)
-SELECT * FROM price_aggregates
-WHERE level = 'parcel'
-  AND ST_Intersects(
-    geom, 
-    ST_MakeEnvelope(minLon, minLat, maxLon, maxLat, 4326)
-  )
-LIMIT 100000;
-```
-
-### Progressive Loading
-- Country/Region: Load all (small datasets)
-- Département/Commune: Load all (manageable)
-- Postcode: 10k limit per request
-- Parcels: 100k limit per bounding box
-
----
-
-## 🐛 Troubleshooting
-
-### Database Connection Refused
-```bash
-# Check if PostgreSQL is running
-docker-compose ps postgres
-
-# Restart database
-docker-compose restart postgres
-
-# View logs
-docker-compose logs postgres
-```
-
-### ETL Pipeline Fails
-```bash
-# Check disk space (needs 10GB+)
-df -h
-
-# Increase Docker memory to 8GB minimum
-# Docker Desktop → Settings → Resources → Memory
-
-# Clear cache and retry
-docker-compose down -v
-docker-compose up -d postgres
-sleep 15
-docker-compose run --rm etl python process_data.py
-```
 ---
 
 ## ✅ Evaluation Criteria
 
-| Criterion | Status | Notes |
-|-----------|--------|-------|
-| ✅ Colored map loading | ✅ OK | Choropleth with 5-color gradient |
-| ✅ Map usable and not laggy | ✅ OK | Bounding box filtering, progressive loading |
-| ✅ Map refreshes on zoom | ✅ OK | Auto level switching at zoom thresholds |
-| ✅ All 6 levels present | ✅ OK | Country → Region → Dept → Commune → Post → Parcel |
-| ✅ Plausible price estimates | ✅ OK | €500-€20k/m² with confidence scoring |
-| ✅ Data complete/subset | ✅ Complete | Full 2023 data (1M transactions, 400k parcels) |
-| ✅ Code clean/reusable | ✅ OK | Modular, documented, Docker-based |
-| ✅ Architecture robust | ✅ OK | PostgreSQL + PostGIS + FastAPI |
-| ✅ Top 10 cities list | ✅ OK | `/top-cities` page with property type breakdown |
-| ✅ App hosted | 🔄 Pending | Ready for Railway/Render/Supabase |
+| Criterion | Status | Implementation |
+|-----------|--------|----------------|
+| ✅ Colored map loading | ✅ | Choropleth with price gradient |
+| ✅ Map not laggy | ✅ | Bbox filtering, progressive loading |
+| ✅ Refresh on zoom | ✅ | Auto level switching |
+| ✅ All 6 levels | ✅ | Country→Region→Dept→Commune→Post→Parcel |
+| ✅ Plausible estimates | ✅ | ML model with confidence intervals |
+| ✅ Complete data | ✅ | Full 2023 DVF (1M transactions) |
+| ✅ Clean code | ✅ | Modular, documented, Docker-based |
+| ✅ Robust architecture | ✅ | PostgreSQL + ML + Static export |
+| ✅ Top 10 cities | ✅ | `/top-cities` page |
+| ✅ **100% ML** | ✅ | LightGBM + Temporal + Hierarchical |
+| 🔄 App hosted | Ready | Vercel/Railway deployment ready |
 
 ---
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE)
 
 ---
 
@@ -537,17 +374,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Eric Margay** - Machine Learning Engineer
 
-📄 CV: [View Resume](https://ericmargay.github.io/DevResumeCV/)  
-📧 Email: [ericmargay@gmail.com](mailto:ericmargay@gmail.com)  
-💼 LinkedIn: [linkedin.com/in/ericmargay](https://linkedin.com/in/ericmargay)  
-🐙 GitHub: [@ericmargay](https://github.com/ericmargay)
+📄 [CV/Resume](https://ericmargay.github.io/DevResumeCV/) | 
+📧 [ericmargay@gmail.com](mailto:ericmargay@gmail.com) | 
+💼 [LinkedIn](https://linkedin.com/in/ericmargay) | 
+🐙 [GitHub](https://github.com/ericmargay)
 
 ---
 
 ## 📚 References
 
-- [DVF Documentation](https://www.data.gouv.fr/fr/datasets/demandes-de-valeurs-foncieres/)
+- [LightGBM Documentation](https://lightgbm.readthedocs.io/)
+- [DVF Data Documentation](https://www.data.gouv.fr/fr/datasets/demandes-de-valeurs-foncieres/)
 - [PostGIS Documentation](https://postgis.net/docs/)
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [GeoPandas Documentation](https://geopandas.org/)
 - [Mapbox GL JS API](https://docs.mapbox.com/mapbox-gl-js/api/)

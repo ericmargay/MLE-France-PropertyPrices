@@ -40,13 +40,7 @@ from ml_price_model import RobustPriceModel, PREDICTION_DATE
 from spatial_aggregation import (
     format_postcode,
     download_postcode_boundaries,
-    save_aggregates_to_postgres,
-    download_cadastre_batiments
-)
-from cadastre_downloader import (
-    download_all_buildings,
-    load_cached_buildings,
-    get_building_for_point
+    save_aggregates_to_postgres
 )
 
 # =============================================================================
@@ -525,28 +519,45 @@ def aggregate_parcels_ml(transactions_gdf, ml_model, commune_estimates,
         departments = [d for d in departments if d and len(d) >= 2]
         parcel_groups = parcels_df.groupby('id_parcelle')
     
-    # Download cadastre building data
-    print(f"\nDownloading cadastre building data for {len(departments)} departments...")
+    # Load cadastre building data from cache (no downloads)
+    print(f"\n" + "-"*60)
+    print("LOADING CADASTRE BUILDING DATA")
+    print("-"*60)
     
     cadastre_cache_dir = '/app/data/cadastre'
-    cadastre_buildings = load_cached_buildings(cadastre_cache_dir, departments)
-    cached_count = len(cadastre_buildings)
+    cadastre_buildings = {}
     
-    if cached_count < len(departments):
-        missing_depts = [d for d in departments if d not in cadastre_buildings]
-        print(f"  Cached: {cached_count} departments, downloading {len(missing_depts)} more...")
+    for dept in departments:
+        # Try different file naming patterns
+        possible_files = [
+            f'{cadastre_cache_dir}/batiments_{dept}.geojson',
+            f'{cadastre_cache_dir}/batiments_{dept}_sampled.geojson',
+            f'{cadastre_cache_dir}/cadastre-{dept}-batiments.json.gz',
+        ]
         
-        new_buildings = download_all_buildings(
-            departments=missing_depts,
-            cache_dir=cadastre_cache_dir,
-            max_workers=4
-        )
-        cadastre_buildings.update(new_buildings)
-    else:
-        print(f"  ✓ All {len(departments)} departments loaded from cache")
+        for filepath in possible_files:
+            if os.path.exists(filepath):
+                try:
+                    gdf = gpd.read_file(filepath)
+                    cadastre_buildings[dept] = gdf
+                    break
+                except Exception as e:
+                    print(f"    Warning: Failed to load {dept}: {e}")
     
-    total_buildings = sum(len(gdf) for gdf in cadastre_buildings.values())
-    print(f"  Total buildings loaded: {total_buildings:,}")
+    cached_count = len(cadastre_buildings)
+    print(f"  Loaded: {cached_count}/{len(departments)} departments from cache")
+    
+    if cached_count > 0:
+        total_buildings = sum(len(gdf) for gdf in cadastre_buildings.values())
+        print(f"  Total buildings: {total_buildings:,}")
+    else:
+        print(f"  ⚠️  No cadastre data found! All parcels will use estimated footprints.")
+        print(f"     Run 'python download_cadastre.py' first to download building data.")
+    
+    # List missing departments
+    if cached_count < len(departments) and cached_count > 0:
+        missing = [d for d in departments if d not in cadastre_buildings]
+        print(f"  Missing (will use estimated footprints): {', '.join(missing[:15])}{'...' if len(missing) > 15 else ''}")
     
     # Process parcels
     print(f"\nProcessing {len(parcel_groups):,} parcels...")
@@ -573,10 +584,24 @@ def aggregate_parcels_ml(transactions_gdf, ml_model, commune_estimates,
         if dept and dept in cadastre_buildings:
             buildings_gdf = cadastre_buildings[dept]
             tx_point = group.geometry.iloc[0]
-            geometry = get_building_for_point(tx_point, buildings_gdf)
             
-            if geometry is not None:
-                with_real_building += 1
+            # Find building containing this point (inline lookup)
+            try:
+                # Check containment first
+                containing = buildings_gdf[buildings_gdf.geometry.contains(tx_point)]
+                if len(containing) > 0:
+                    geometry = containing.iloc[0].geometry
+                else:
+                    # Find nearest within ~50m (0.0005 degrees)
+                    distances = buildings_gdf.geometry.distance(tx_point)
+                    min_idx = distances.idxmin()
+                    if distances[min_idx] <= 0.0005:
+                        geometry = buildings_gdf.loc[min_idx].geometry
+                
+                if geometry is not None:
+                    with_real_building += 1
+            except Exception:
+                pass  # Fall through to estimated footprint
         
         if geometry is None:
             try:

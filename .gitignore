@@ -40,6 +40,7 @@ data/processed/*.parquet
 data/geometries/*.geojson
 data/cadastre/*.geojson
 data/cadastre/*.failed
+data/cadastre/*.gz
 data/geometries/*.shp
 data/geometries/*.shx
 data/geometries/*.dbf
