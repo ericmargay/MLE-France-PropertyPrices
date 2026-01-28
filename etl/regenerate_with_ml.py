@@ -41,6 +41,7 @@ engine = create_engine(DATABASE_URL)
 # Configuration
 CADASTRE_CACHE_DIR = '/app/data/cadastre'
 MAX_PARCELS = 500000  # Limit for memory management
+SKIP_PARCELS = os.getenv('SKIP_PARCELS', 'false').lower() == 'true'  # Set SKIP_PARCELS=true to skip
 
 
 def load_transactions():
@@ -332,48 +333,61 @@ def aggregate_parcels_ml(transactions_gdf, ml_model, commune_estimates,
         departments = [d for d in departments if d and len(d) >= 2]
         parcel_groups = parcels_df.groupby('id_parcelle')
     
-    # Download cadastre building data
+    # Check cadastre data availability (just file check, no loading)
     print(f"\n" + "-"*60)
-    print("LOADING CADASTRE BUILDING DATA")
+    print("CHECKING CADASTRE DATA")
     print("-"*60)
     
-    # Load from cache - check for existing files with various naming patterns
-    cadastre_buildings = {}
-    
+    available_depts = set()
     for dept in departments:
-        # Try different file naming patterns
-        possible_files = [
-            f'{CADASTRE_CACHE_DIR}/batiments_{dept}.geojson',
-            f'{CADASTRE_CACHE_DIR}/batiments_{dept}_sampled.geojson',
-            f'{CADASTRE_CACHE_DIR}/cadastre-{dept}-batiments.json.gz',
-        ]
+        for pattern in [f'batiments_{dept}.geojson', f'batiments_{dept}_sampled.geojson']:
+            if os.path.exists(f'{CADASTRE_CACHE_DIR}/{pattern}'):
+                available_depts.add(dept)
+                break
+    
+    print(f"  Available: {len(available_depts)}/{len(departments)} departments")
+    if len(available_depts) == 0:
+        print(f"  ⚠️  No cadastre data - using estimated footprints only")
+    
+    # Lazy-loading cache (one department at a time to save memory)
+    cadastre_cache = {'dept': None, 'data': None}
+    
+    def get_cadastre_geometry(dept, point):
+        """Lazy load and find building geometry."""
+        if dept not in available_depts:
+            return None
         
-        for filepath in possible_files:
-            if os.path.exists(filepath):
-                try:
-                    gdf = gpd.read_file(filepath)
-                    cadastre_buildings[dept] = gdf
-                    break
-                except Exception as e:
-                    print(f"    Warning: Failed to load {dept}: {e}")
+        # Load department if not cached
+        if cadastre_cache['dept'] != dept:
+            cadastre_cache['data'] = None
+            for pattern in [f'batiments_{dept}.geojson', f'batiments_{dept}_sampled.geojson']:
+                filepath = f'{CADASTRE_CACHE_DIR}/{pattern}'
+                if os.path.exists(filepath):
+                    try:
+                        cadastre_cache['data'] = gpd.read_file(filepath)
+                        cadastre_cache['dept'] = dept
+                        break
+                    except:
+                        pass
+        
+        if cadastre_cache['data'] is None:
+            return None
+        
+        gdf = cadastre_cache['data']
+        try:
+            # Find containing building
+            mask = gdf.geometry.contains(point)
+            if mask.any():
+                return gdf[mask].iloc[0].geometry
+            # Find nearest within 50m
+            dists = gdf.geometry.distance(point)
+            if dists.min() <= 0.0005:
+                return gdf.loc[dists.idxmin()].geometry
+        except:
+            pass
+        return None
     
-    cached_count = len(cadastre_buildings)
-    print(f"  Loaded: {cached_count}/{len(departments)} departments from cache")
-    
-    if cached_count > 0:
-        total_buildings = sum(len(gdf) for gdf in cadastre_buildings.values())
-        print(f"  Total buildings: {total_buildings:,}")
-    else:
-        total_buildings = 0
-        print(f"  ⚠️  No cadastre data found! All parcels will use estimated footprints.")
-        print(f"     Run 'python download_cadastre.py' first to download building data.")
-    
-    # List which departments are missing
-    if cached_count < len(departments) and cached_count > 0:
-        missing = [d for d in departments if d not in cadastre_buildings]
-        print(f"  Missing (will use estimated footprints): {', '.join(missing[:15])}{'...' if len(missing) > 15 else ''}")
-    
-    # Process parcels
+    # Process parcels (sorted by dept for efficient caching)
     print(f"\n" + "-"*60)
     print(f"PROCESSING {len(parcel_groups):,} PARCELS")
     print("-"*60)
@@ -383,7 +397,7 @@ def aggregate_parcels_ml(transactions_gdf, ml_model, commune_estimates,
     with_estimated = 0
     skipped = 0
     
-    parcel_list = list(parcel_groups)
+    parcel_list = sorted(list(parcel_groups), key=lambda x: x[0][:2] if len(x[0]) >= 2 else '')
     
     for idx, (parcel_id, group) in enumerate(parcel_list):
         if (idx + 1) % 25000 == 0:
@@ -395,33 +409,15 @@ def aggregate_parcels_ml(transactions_gdf, ml_model, commune_estimates,
             skipped += 1
             continue
         
-        # Get department code
         dept = parcel_id[:2] if len(parcel_id) >= 2 else None
-        
-        # Try to find real building footprint
         geometry = None
         
-        if dept and dept in cadastre_buildings:
-            buildings_gdf = cadastre_buildings[dept]
+        # Try real building (lazy loaded)
+        if dept:
             tx_point = group.geometry.iloc[0]
-            
-            # Find building containing this point (fast spatial query)
-            try:
-                # Check containment
-                containing = buildings_gdf[buildings_gdf.geometry.contains(tx_point)]
-                if len(containing) > 0:
-                    geometry = containing.iloc[0].geometry
-                else:
-                    # Find nearest within ~50m (0.0005 degrees)
-                    distances = buildings_gdf.geometry.distance(tx_point)
-                    min_idx = distances.idxmin()
-                    if distances[min_idx] <= 0.0005:
-                        geometry = buildings_gdf.loc[min_idx].geometry
-                
-                if geometry is not None:
-                    with_real_building += 1
-            except Exception:
-                pass  # Fall through to estimated footprint
+            geometry = get_cadastre_geometry(dept, tx_point)
+            if geometry is not None:
+                with_real_building += 1
         
         # Fallback: create estimated footprint
         if geometry is None:
@@ -642,11 +638,16 @@ def main():
     save_aggregates_to_postgres(postcode_gdf, engine, if_exists='append')
     
     # --- PARCELS ---
-    parcel_gdf = aggregate_parcels_ml(
-        transactions_gdf, ml_model, commune_estimates,
-        max_parcels=MAX_PARCELS
-    )
-    save_aggregates_to_postgres(parcel_gdf, engine, if_exists='append')
+    if SKIP_PARCELS:
+        print("\n" + "="*60)
+        print("SKIPPING PARCEL AGGREGATION (SKIP_PARCELS=true)")
+        print("="*60)
+    else:
+        parcel_gdf = aggregate_parcels_ml(
+            transactions_gdf, ml_model, commune_estimates,
+            max_parcels=MAX_PARCELS
+        )
+        save_aggregates_to_postgres(parcel_gdf, engine, if_exists='append')
     
     # =================================================================
     # VERIFICATION

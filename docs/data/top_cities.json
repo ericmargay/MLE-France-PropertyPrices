@@ -1,0 +1,162 @@
+[
+  {
+    "name": "Nice",
+    "code": "06088",
+    "property_types": [
+      {
+        "type": "Appartement",
+        "median_price": 4760,
+        "transaction_count": 7741
+      },
+      {
+        "type": "Maison",
+        "median_price": 6204,
+        "transaction_count": 323
+      }
+    ]
+  },
+  {
+    "name": "Toulouse",
+    "code": "31555",
+    "property_types": [
+      {
+        "type": "Appartement",
+        "median_price": 3414,
+        "transaction_count": 6903
+      },
+      {
+        "type": "Maison",
+        "median_price": 4049,
+        "transaction_count": 1154
+      }
+    ]
+  },
+  {
+    "name": "Montpellier",
+    "code": "34172",
+    "property_types": [
+      {
+        "type": "Appartement",
+        "median_price": 3563,
+        "transaction_count": 4705
+      },
+      {
+        "type": "Maison",
+        "median_price": 4242,
+        "transaction_count": 500
+      }
+    ]
+  },
+  {
+    "name": "Nantes",
+    "code": "44109",
+    "property_types": [
+      {
+        "type": "Appartement",
+        "median_price": 3761,
+        "transaction_count": 4187
+      },
+      {
+        "type": "Maison",
+        "median_price": 4667,
+        "transaction_count": 985
+      }
+    ]
+  },
+  {
+    "name": "Bordeaux",
+    "code": "33063",
+    "property_types": [
+      {
+        "type": "Appartement",
+        "median_price": 4717,
+        "transaction_count": 3775
+      },
+      {
+        "type": "Maison",
+        "median_price": 5392,
+        "transaction_count": 1098
+      }
+    ]
+  },
+  {
+    "name": "Lille",
+    "code": "59350",
+    "property_types": [
+      {
+        "type": "Appartement",
+        "median_price": 4167,
+        "transaction_count": 3320
+      },
+      {
+        "type": "Maison",
+        "median_price": 2919,
+        "transaction_count": 952
+      }
+    ]
+  },
+  {
+    "name": "Saint-\u00c9tienne",
+    "code": "42218",
+    "property_types": [
+      {
+        "type": "Appartement",
+        "median_price": 1439,
+        "transaction_count": 3688
+      },
+      {
+        "type": "Maison",
+        "median_price": 2394,
+        "transaction_count": 240
+      }
+    ]
+  },
+  {
+    "name": "Toulon",
+    "code": "83137",
+    "property_types": [
+      {
+        "type": "Appartement",
+        "median_price": 2846,
+        "transaction_count": 3005
+      },
+      {
+        "type": "Maison",
+        "median_price": 4676,
+        "transaction_count": 461
+      }
+    ]
+  },
+  {
+    "name": "Dijon",
+    "code": "21231",
+    "property_types": [
+      {
+        "type": "Appartement",
+        "median_price": 2793,
+        "transaction_count": 3032
+      },
+      {
+        "type": "Maison",
+        "median_price": 3371,
+        "transaction_count": 368
+      }
+    ]
+  },
+  {
+    "name": "Rennes",
+    "code": "35238",
+    "property_types": [
+      {
+        "type": "Appartement",
+        "median_price": 3826,
+        "transaction_count": 2929
+      },
+      {
+        "type": "Maison",
+        "median_price": 5102,
+        "transaction_count": 415
+      }
+    ]
+  }
+]

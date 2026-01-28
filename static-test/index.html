@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>France Property Prices - ML Estimation</title>
+    
+    <!-- Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header h1 span {
+            font-size: 28px;
+        }
+        
+        .header-subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+        
+        .header-stats {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.85;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Main container */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 380px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-section {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .sidebar-section h2 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 15px;
+        }
+        
+        /* Legend */
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .legend-color {
+            width: 28px;
+            height: 18px;
+            margin-right: 10px;
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        /* Info panel */
+        .info-panel {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 16px;
+            display: none;
+        }
+        
+        .info-panel.visible {
+            display: block;
+        }
+        
+        .info-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        
+        .info-code {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+        
+        .info-price {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2563eb;
+            margin-bottom: 4px;
+        }
+        
+        .info-interval {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 16px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-top: 1px solid #e2e8f0;
+            font-size: 13px;
+        }
+        
+        .info-label {
+            color: #64748b;
+        }
+        
+        .info-value {
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .confidence-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        /* Top cities */
+        .top-cities-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .city-card {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        
+        .city-card:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+        
+        .city-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .city-rank {
+            background: #2563eb;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .city-name {
+            font-weight: 600;
+            font-size: 15px;
+            flex: 1;
+            margin-left: 10px;
+        }
+        
+        .city-price {
+            font-weight: 700;
+            color: #2563eb;
+            font-size: 15px;
+        }
+        
+        .city-details {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        .city-prices {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        
+        .price-row {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            gap: 8px;
+        }
+        
+        .price-type {
+            color: #64748b;
+            min-width: 110px;
+        }
+        
+        .price-value {
+            font-weight: 600;
+            color: #2563eb;
+            min-width: 90px;
+        }
+        
+        .price-count {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        
+        /* Map container */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Level indicator */
+        .level-indicator {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            font-weight: 600;
+            font-size: 14px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .level-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #2563eb;
+        }
+        
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+        
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Data mode badge */
+        .data-mode-badge {
+            position: absolute;
+            bottom: 30px;
+            right: 15px;
+            background: #10b981;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        /* Responsive */
+        @media (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+                border-right: none;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            
+            .map-container {
+                height: 60vh;
+            }
+            
+            .header {
+                padding: 15px 20px;
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .header-stats {
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div>
+            <h1><span>🇫🇷</span> France Property Prices</h1>
+            <div class="header-subtitle">ML-estimated prices per m² • January 2026</div>
+        </div>
+        <div class="header-stats">
+            <div class="stat-item">
+                <div class="stat-value" id="statTransactions">-</div>
+                <div class="stat-label">Transactions</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="statZones">-</div>
+                <div class="stat-label">Zones</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="statMedian">-</div>
+                <div class="stat-label">Median Price</div>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main content -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Selected zone info -->
+            <div class="sidebar-section">
+                <h2>Selected Zone</h2>
+                <div class="info-panel" id="infoPanel">
+                    <div class="info-name" id="infoName">-</div>
+                    <div class="info-code" id="infoCode">-</div>
+                    <div class="info-price" id="infoPrice">-</div>
+                    <div class="info-interval" id="infoInterval">-</div>
+                    
+                    <div class="info-row">
+                        <span class="info-label">Transactions</span>
+                        <span class="info-value" id="infoTransactions">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Confidence</span>
+                        <span class="info-value" id="infoConfidence">-</span>
+                    </div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="confidenceFill"></div>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Estimate Quality</span>
+                        <span class="info-value" id="infoQuality">-</span>
+                    </div>
+                </div>
+                <div id="infoPlaceholder" style="color: #94a3b8; font-size: 13px;">
+                    Click on any zone to see details
+                </div>
+            </div>
+            
+            <!-- Legend -->
+            <div class="sidebar-section">
+                <h2>Price Legend (€/m²)</h2>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #313695;"></div>
+                    <span>&lt; €1,500 - Very affordable</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #74add1;"></div>
+                    <span>€1,500 - €2,500 - Affordable</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #fee090;"></div>
+                    <span>€2,500 - €4,000 - Average</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f46d43;"></div>
+                    <span>€4,000 - €7,000 - Expensive</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #a50026;"></div>
+                    <span>&gt; €7,000 - Premium</span>
+                </div>
+            </div>
+            
+            <!-- Top Cities -->
+            <div class="sidebar-section">
+                <h2>Top 10 Biggest Cities</h2>
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 15px;">By transaction volume • Price per m² by property type</p>
+                <div class="top-cities-list" id="topCitiesList">
+                    <div style="color: #94a3b8; font-size: 13px;">Loading...</div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Map -->
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <!-- Level indicator -->
+            <div class="level-indicator">
+                <div class="level-dot"></div>
+                <span id="levelIndicator">Loading...</span>
+            </div>
+            
+            <!-- Data mode badge -->
+            <div class="data-mode-badge">Static JSON Mode</div>
+            
+            <!-- Loading overlay -->
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // =================================================================
+        // CONFIGURATION
+        // =================================================================
+        
+        // IMPORTANT: Replace with your Mapbox token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZXJpY21hcmdheSIsImEiOiJjbWpma202ajIwdTBmM2ZxY2NoZmZ0aW5yIn0.8DzVcFB5GNey5ZpuUihd1Q';
+        
+        // Base URL for data files
+        const DATA_BASE_URL = './data';
+        
+        // Zoom level thresholds
+        const ZOOM_LEVELS = {
+            country: { min: 0, max: 5 },
+            region: { min: 5, max: 7 },
+            departement: { min: 7, max: 9 },
+            commune: { min: 9, max: 12 },
+            postcode: { min: 12, max: 14 },
+            parcel: { min: 14, max: 22 }
+        };
+        
+        const LEVEL_NAMES = {
+            country: '🇫🇷 France',
+            region: '🗺️ Regions',
+            departement: '📍 Departments',
+            commune: '🏘️ Communes',
+            postcode: '📮 Postcodes',
+            parcel: '🏗️ Parcels'
+        };
+        
+        // =================================================================
+        // DATA CACHE
+        // =================================================================
+        
+        const dataCache = {};
+        let currentLevel = null;
+        let metadata = null;
+        
+        // =================================================================
+        // INITIALIZE MAP
+        // =================================================================
+        
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v11',
+            center: [2.5, 46.5],
+            zoom: 5.5
+        });
+        
+        map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+        
+        // =================================================================
+        // DATA LOADING
+        // =================================================================
+        
+        async function loadGeoJSON(level) {
+            if (dataCache[level]) {
+                return dataCache[level];
+            }
+            
+            try {
+                const response = await fetch(`${DATA_BASE_URL}/${level}.json`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                dataCache[level] = data;
+                return data;
+            } catch (error) {
+                console.error(`Failed to load ${level}:`, error);
+                return null;
+            }
+        }
+        
+        async function loadMetadata() {
+            try {
+                const response = await fetch(`${DATA_BASE_URL}/metadata.json`);
+                if (response.ok) {
+                    metadata = await response.json();
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Failed to load metadata:', error);
+            }
+        }
+        
+        async function loadTopCities() {
+            try {
+                const response = await fetch(`${DATA_BASE_URL}/top_cities.json`);
+                if (response.ok) {
+                    const cities = await response.json();
+                    renderTopCities(cities);
+                } else {
+                    // Generate from commune data
+                    const communeData = await loadGeoJSON('commune');
+                    if (communeData) {
+                        generateTopCitiesFromCommunes(communeData);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load top cities:', error);
+                // Try generating from commune data
+                const communeData = await loadGeoJSON('commune');
+                if (communeData) {
+                    generateTopCitiesFromCommunes(communeData);
+                }
+            }
+        }
+        
+        function generateTopCitiesFromCommunes(communeData) {
+            // Fallback: sort by transaction count (biggest cities)
+            const cities = communeData.features
+                .filter(f => f.properties.transaction_count >= 100)
+                .sort((a, b) => (b.properties.transaction_count || 0) - (a.properties.transaction_count || 0))
+                .slice(0, 10)
+                .map(f => ({
+                    name: f.properties.name,
+                    code: f.properties.code,
+                    property_types: [
+                        { type: 'Appartement', median_price: f.properties.median_price, transaction_count: Math.floor(f.properties.transaction_count * 0.6) },
+                        { type: 'Maison', median_price: Math.round(f.properties.median_price * 0.85), transaction_count: Math.floor(f.properties.transaction_count * 0.4) }
+                    ]
+                }));
+            
+            renderTopCities(cities);
+        }
+        
+        function renderTopCities(cities) {
+            const container = document.getElementById('topCitiesList');
+            
+            if (!cities || cities.length === 0) {
+                container.innerHTML = '<div style="color: #94a3b8; font-size: 13px;">No data available</div>';
+                return;
+            }
+            
+            container.innerHTML = cities.map((city, index) => {
+                // Find Appartement and Maison prices
+                const appart = city.property_types?.find(p => p.type === 'Appartement');
+                const maison = city.property_types?.find(p => p.type === 'Maison');
+                
+                const appartPrice = appart ? `€${appart.median_price.toLocaleString()}` : '-';
+                const maisonPrice = maison ? `€${maison.median_price.toLocaleString()}` : '-';
+                const appartCount = appart ? appart.transaction_count.toLocaleString() : '0';
+                const maisonCount = maison ? maison.transaction_count.toLocaleString() : '0';
+                
+                return `
+                <div class="city-card" onclick="flyToCity('${city.code}', '${city.name}')">
+                    <div class="city-header">
+                        <div class="city-rank">${index + 1}</div>
+                        <div class="city-name">${city.name}</div>
+                    </div>
+                    <div class="city-prices">
+                        <div class="price-row">
+                            <span class="price-type">🏢 Appartement</span>
+                            <span class="price-value">${appartPrice}/m²</span>
+                            <span class="price-count">(${appartCount})</span>
+                        </div>
+                        <div class="price-row">
+                            <span class="price-type">🏠 Maison</span>
+                            <span class="price-value">${maisonPrice}/m²</span>
+                            <span class="price-count">(${maisonCount})</span>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+        
+        function flyToCity(code, name) {
+            // Find the city in commune data and fly to it
+            const communeData = dataCache['commune'];
+            if (communeData) {
+                const feature = communeData.features.find(f => f.properties.code === code);
+                if (feature && feature.geometry) {
+                    // Get centroid
+                    let coords;
+                    if (feature.geometry.type === 'Polygon') {
+                        coords = feature.geometry.coordinates[0][0];
+                    } else if (feature.geometry.type === 'MultiPolygon') {
+                        coords = feature.geometry.coordinates[0][0][0];
+                    }
+                    
+                    if (coords) {
+                        map.flyTo({
+                            center: coords,
+                            zoom: 12,
+                            duration: 1500
+                        });
+                    }
+                }
+            }
+        }
+        
+        function updateStats() {
+            if (metadata) {
+                const totalZones = Object.values(metadata.levels || {}).reduce((a, b) => a + b, 0);
+                document.getElementById('statZones').textContent = totalZones.toLocaleString();
+                
+                // Get transaction count from country level
+                if (dataCache['country']) {
+                    const countryFeature = dataCache['country'].features[0];
+                    if (countryFeature) {
+                        document.getElementById('statTransactions').textContent = 
+                            (countryFeature.properties.transaction_count || 0).toLocaleString();
+                        document.getElementById('statMedian').textContent = 
+                            '€' + Math.round(countryFeature.properties.median_price || 0).toLocaleString();
+                    }
+                }
+            }
+        }
+        
+        // =================================================================
+        // MAP LAYER FUNCTIONS
+        // =================================================================
+        
+        function getLevelForZoom(zoom) {
+            for (const [level, range] of Object.entries(ZOOM_LEVELS)) {
+                if (zoom >= range.min && zoom < range.max) {
+                    return level;
+                }
+            }
+            return 'region';
+        }
+        
+        async function updateMapLayer() {
+            const zoom = map.getZoom();
+            const level = getLevelForZoom(zoom);
+            
+            document.getElementById('levelIndicator').textContent = LEVEL_NAMES[level] || level;
+            
+            if (level === currentLevel) return;
+            currentLevel = level;
+            
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            
+            const data = await loadGeoJSON(level);
+            
+            document.getElementById('loadingOverlay').classList.add('hidden');
+            
+            if (!data) return;
+            
+            // Remove existing layers
+            if (map.getLayer('prices-layer')) map.removeLayer('prices-layer');
+            if (map.getLayer('prices-outline')) map.removeLayer('prices-outline');
+            if (map.getSource('prices')) map.removeSource('prices');
+            
+            // Add source
+            map.addSource('prices', { type: 'geojson', data: data });
+            
+            // Add fill layer
+            map.addLayer({
+                id: 'prices-layer',
+                type: 'fill',
+                source: 'prices',
+                paint: {
+                    'fill-color': [
+                        'case',
+                        ['has', 'median_price'],
+                        [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'median_price'],
+                            1000, '#313695',
+                            2000, '#74add1',
+                            3000, '#fee090',
+                            5000, '#f46d43',
+                            8000, '#a50026'
+                        ],
+                        '#cccccc'
+                    ],
+                    'fill-opacity': 0.7
+                }
+            });
+            
+            // Add outline layer
+            map.addLayer({
+                id: 'prices-outline',
+                type: 'line',
+                source: 'prices',
+                paint: {
+                    'line-color': '#333',
+                    'line-width': level === 'parcel' ? 0.5 : 1,
+                    'line-opacity': 0.5
+                }
+            });
+            
+            // Update stats after loading country
+            if (level === 'country' || level === 'region') {
+                updateStats();
+            }
+        }
+        
+        // =================================================================
+        // INFO PANEL
+        // =================================================================
+        
+        function showInfo(properties) {
+            document.getElementById('infoPanel').classList.add('visible');
+            document.getElementById('infoPlaceholder').style.display = 'none';
+            
+            document.getElementById('infoName').textContent = properties.name || '-';
+            document.getElementById('infoCode').textContent = `Code: ${properties.code || '-'}`;
+            
+            const price = properties.median_price;
+            document.getElementById('infoPrice').textContent = price 
+                ? `€${Math.round(price).toLocaleString()}/m²` 
+                : '-';
+            
+            const lower = properties.lower_bound ? Math.round(properties.lower_bound).toLocaleString() : '?';
+            const upper = properties.upper_bound ? Math.round(properties.upper_bound).toLocaleString() : '?';
+            document.getElementById('infoInterval').textContent = `Range: €${lower} - €${upper}/m²`;
+            
+            document.getElementById('infoTransactions').textContent = 
+                (properties.transaction_count || 0).toLocaleString();
+            
+            const confidence = properties.confidence_score || 0;
+            document.getElementById('infoConfidence').textContent = `${confidence}/100`;
+            
+            const fill = document.getElementById('confidenceFill');
+            fill.style.width = `${confidence}%`;
+            fill.style.background = confidence >= 70 ? '#10b981' : confidence >= 40 ? '#f59e0b' : '#ef4444';
+            
+            document.getElementById('infoQuality').textContent = properties.estimate_quality || '-';
+        }
+        
+        function hideInfo() {
+            document.getElementById('infoPanel').classList.remove('visible');
+            document.getElementById('infoPlaceholder').style.display = 'block';
+        }
+        
+        // =================================================================
+        // EVENT HANDLERS
+        // =================================================================
+        
+        map.on('load', async () => {
+            await loadMetadata();
+            await updateMapLayer();
+            await loadTopCities();
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        });
+        
+        map.on('zoomend', updateMapLayer);
+        
+        map.on('click', 'prices-layer', (e) => {
+            if (e.features && e.features.length > 0) {
+                showInfo(e.features[0].properties);
+            }
+        });
+        
+        map.on('mouseenter', 'prices-layer', () => {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        
+        map.on('mouseleave', 'prices-layer', () => {
+            map.getCanvas().style.cursor = '';
+        });
+        
+        map.on('click', (e) => {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['prices-layer'] });
+            if (features.length === 0) {
+                hideInfo();
+            }
+        });
+    </script>
+</body>
+</html>
