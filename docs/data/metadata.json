@@ -1,12 +1,13 @@
 {
-  "exported_at": "2026-01-28T05:18:43.494227",
+  "exported_at": "2026-01-28T08:24:25.512808",
   "levels": {
     "country": 1,
     "region": 13,
     "departement": 95,
     "commune": 31059,
-    "postcode": 5737
+    "postcode": 5737,
+    "parcel": 500000
   },
-  "total_features": 36905,
+  "total_features": 536905,
   "note": "Partial export for testing (parcels may be incomplete)"
 }
