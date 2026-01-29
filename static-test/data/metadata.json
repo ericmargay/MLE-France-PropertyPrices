@@ -1,13 +1,23 @@
 {
-  "exported_at": "2026-01-28T08:24:25.512808",
+  "generated_at": "2026-01-29T00:36:31.917869",
+  "prediction_date": "2025-01-01",
+  "model": "LightGBM + Linear Temporal Trend",
+  "data_source": "DVF 2023 (data.gouv.fr)",
+  "total_transactions": 997252,
   "levels": {
     "country": 1,
     "region": 13,
-    "departement": 95,
-    "commune": 31059,
-    "postcode": 5737,
-    "parcel": 500000
+    "departement": 94,
+    "commune": 30583,
+    "postcode": 5720,
+    "parcel": 642909
   },
-  "total_features": 536905,
-  "note": "Partial export for testing (parcels may be incomplete)"
+  "files": {
+    "country": "country.json",
+    "region": "region.json",
+    "departement": "departement.json",
+    "commune": "commune.json",
+    "postcode": "postcode.json",
+    "parcel": "parcel/{dept}.json"
+  }
 }
