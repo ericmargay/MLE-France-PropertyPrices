@@ -32,6 +32,8 @@ wheels/
 *.ipynb
 
 # Data files (too large for git)
+docs/data/image0.png
+interview/
 data/raw/*.csv
 data/raw/*.csv.gz
 data/raw/*.zip
