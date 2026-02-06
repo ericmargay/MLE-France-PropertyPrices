@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>France Property Prices - Technical Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            font-size: 1.4rem;
+            margin-bottom: 10px;
+        }
+        
+        .search-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        #searchInput {
+            flex: 1;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        #searchBtn {
+            padding: 10px 20px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        #searchBtn:hover {
+            background: #ff6b6b;
+        }
+        
+        .search-results {
+            background: #fff3cd;
+            padding: 10px 20px;
+            margin-top: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 100px auto 40px;
+            padding: 20px;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .nav-tab {
+            padding: 10px 15px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .nav-tab:hover {
+            background: #ccc;
+        }
+        
+        .nav-tab.active {
+            background: #1a1a2e;
+            color: white;
+        }
+        
+        .section {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        h2 {
+            color: #1a1a2e;
+            border-bottom: 3px solid #e94560;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        h3 {
+            color: #16213e;
+            margin: 25px 0 15px;
+        }
+        
+        h4 {
+            color: #333;
+            margin: 20px 0 10px;
+        }
+        
+        pre {
+            background: #1a1a2e;
+            color: #a8dadc;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-size: 0.9rem;
+        }
+        
+        code {
+            background: #e8e8e8;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        th {
+            background: #1a1a2e;
+            color: white;
+        }
+        
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        .highlight {
+            background: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin: 15px 0;
+        }
+        
+        .metric-box {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin: 5px;
+            text-align: center;
+        }
+        
+        .metric-box .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        
+        .metric-box .label {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        
+        .diagram {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 20px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.4;
+        }
+        
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .tech-badge {
+            background: #1a1a2e;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .searchable {
+            /* Marker class for searchable content */
+        }
+        
+        mark {
+            background: #ffeb3b;
+            padding: 2px;
+        }
+        
+        .back-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1a1a2e;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin-top: 140px;
+                padding: 10px;
+            }
+            
+            .section {
+                padding: 15px;
+            }
+            
+            .nav-tab {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏠 France Property Prices - Technical Documentation</h1>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Search documentation... (e.g., PostGIS, smoothing, LightGBM)">
+            <button id="searchBtn">Search</button>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+    </div>
+    
+    <div class="container">
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-section="overview">Overview</button>
+            <button class="nav-tab" data-section="architecture">Architecture</button>
+            <button class="nav-tab" data-section="etl">ETL Pipeline</button>
+            <button class="nav-tab" data-section="ml">ML Model</button>
+            <button class="nav-tab" data-section="aggregation">Aggregation</button>
+            <button class="nav-tab" data-section="frontend">Frontend</button>
+            <button class="nav-tab" data-section="commands">Commands</button>
+        </div>
+        
+        <!-- OVERVIEW SECTION -->
+        <div id="overview" class="section active searchable">
+            <h2>Project Overview</h2>
+            
+            <h3>Key Metrics</h3>
+            <div style="margin: 20px 0;">
+                <div class="metric-box">
+                    <div class="value">3.8M</div>
+                    <div class="label">Raw Transactions</div>
+                </div>
+                <div class="metric-box">
+                    <div class="value">997K</div>
+                    <div class="label">Clean Transactions</div>
+                </div>
+                <div class="metric-box">
+                    <div class="value">674K</div>
+                    <div class="label">Output Zones</div>
+                </div>
+                <div class="metric-box">
+                    <div class="value">R²=0.517</div>
+                    <div class="label">Model Accuracy</div>
+                </div>
+            </div>
+            
+            <h3>Project Summary</h3>
+            <p>A complete ML pipeline that transforms French government property transaction data (DVF) into accurate price estimates at 6 geographic levels, from country down to individual building parcels.</p>
+            
+            <h3>Technology Stack</h3>
+            <div class="tech-stack">
+                <span class="tech-badge">Python 3.11</span>
+                <span class="tech-badge">PostgreSQL + PostGIS</span>
+                <span class="tech-badge">Docker</span>
+                <span class="tech-badge">LightGBM</span>
+                <span class="tech-badge">GeoPandas</span>
+                <span class="tech-badge">Mapbox GL JS</span>
+                <span class="tech-badge">FastAPI</span>
+            </div>
+            
+            <h3>Pipeline Flow</h3>
+            <div class="diagram">
+DVF Data (3.8M)  →  ETL Pipeline  →  PostgreSQL/PostGIS  →  ML Model  →  Aggregation  →  GeoJSON  →  Mapbox
+     ↓                  ↓                    ↓                 ↓            ↓              ↓
+ Raw CSV         Clean & Filter      Spatial Index      LightGBM     6 Levels       Interactive
+ from gov       26% retained         GIST indexes       R²=0.517     674K zones     Choropleth
+            </div>
+            
+            <h3>Geographic Levels</h3>
+            <table>
+                <tr>
+                    <th>Level</th>
+                    <th>Count</th>
+                    <th>Avg Transactions</th>
+                    <th>Data Quality</th>
+                </tr>
+                <tr>
+                    <td>Country</td>
+                    <td>1</td>
+                    <td>997,252</td>
+                    <td>100% High</td>
+                </tr>
+                <tr>
+                    <td>Region</td>
+                    <td>13</td>
+                    <td>76,712</td>
+                    <td>100% High</td>
+                </tr>
+                <tr>
+                    <td>Department</td>
+                    <td>96</td>
+                    <td>10,388</td>
+                    <td>95% High</td>
+                </tr>
+                <tr>
+                    <td>Commune</td>
+                    <td>31,059</td>
+                    <td>32</td>
+                    <td>15% High</td>
+                </tr>
+                <tr>
+                    <td>Postcode</td>
+                    <td>5,737</td>
+                    <td>174</td>
+                    <td>20% High</td>
+                </tr>
+                <tr>
+                    <td>Parcel</td>
+                    <td>642,909</td>
+                    <td>1.6</td>
+                    <td>5% High</td>
+                </tr>
+            </table>
+            
+            <h3>Data Sources</h3>
+            <table>
+                <tr>
+                    <th>Source</th>
+                    <th>Data</th>
+                    <th>Size</th>
+                    <th>URL</th>
+                </tr>
+                <tr>
+                    <td>DVF</td>
+                    <td>Property transactions</td>
+                    <td>~500MB/year</td>
+                    <td>data.gouv.fr</td>
+                </tr>
+                <tr>
+                    <td>Cadastre</td>
+                    <td>Building footprints</td>
+                    <td>22GB total</td>
+                    <td>cadastre.data.gouv.fr</td>
+                </tr>
+                <tr>
+                    <td>Admin Boundaries</td>
+                    <td>Regions, Depts, Communes</td>
+                    <td>~50MB</td>
+                    <td>github.com/gregoiredavid</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- ARCHITECTURE SECTION -->
+        <div id="architecture" class="section searchable">
+            <h2>System Architecture</h2>
+            
+            <h3>4-Layer Architecture</h3>
+            <div class="diagram">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PRESENTATION LAYER                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
+│  │   Mapbox GL JS  │  │   FastAPI       │  │   GitHub Pages  │             │
+│  │   (Map Render)  │  │   (REST API)    │  │   (Static Host) │             │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                           PROCESSING LAYER                                   │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
+│  │   ETL Pipeline  │  │   ML Model      │  │   Aggregation   │             │
+│  │   (Python)      │  │   (LightGBM)    │  │   (GeoPandas)   │             │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                           DATA LAYER                                         │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
+│  │   PostgreSQL    │  │   PostGIS       │  │   GeoJSON       │             │
+│  │   (Storage)     │  │   (Spatial)     │  │   (Export)      │             │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                           INFRASTRUCTURE LAYER                               │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
+│  │   Docker        │  │   Docker        │  │   Volume        │             │
+│  │   Compose       │  │   Networks      │  │   Mounts        │             │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
+└─────────────────────────────────────────────────────────────────────────────┘
+            </div>
+            
+            <h3>Docker Services</h3>
+            <table>
+                <tr>
+                    <th>Service</th>
+                    <th>Container</th>
+                    <th>Image</th>
+                    <th>Port</th>
+                </tr>
+                <tr>
+                    <td>Database</td>
+                    <td>france_property_db</td>
+                    <td>postgis/postgis:15-3.3</td>
+                    <td>5432</td>
+                </tr>
+                <tr>
+                    <td>ETL</td>
+                    <td>france_property_etl</td>
+                    <td>Custom Python</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>Web App</td>
+                    <td>france_property_app</td>
+                    <td>FastAPI + Uvicorn</td>
+                    <td>8080</td>
+                </tr>
+            </table>
+            
+            <h3>Database Schema</h3>
+            <pre><code>-- Transactions table
+CREATE TABLE transactions (
+    id SERIAL PRIMARY KEY,
+    date_mutation DATE,
+    valeur_fonciere DECIMAL(15,2),
+    code_postal VARCHAR(10),
+    code_commune VARCHAR(10),
+    code_departement VARCHAR(5),
+    type_local VARCHAR(50),
+    surface_reelle_bati DECIMAL(10,2),
+    price_per_m2 DECIMAL(10,2),
+    geom GEOMETRY(Point, 4326)
+);
+
+-- Spatial index for fast queries
+CREATE INDEX idx_transactions_geom ON transactions USING GIST(geom);
+
+-- Aggregates table
+CREATE TABLE price_aggregates (
+    id SERIAL PRIMARY KEY,
+    level VARCHAR(20),
+    code VARCHAR(50),
+    name VARCHAR(255),
+    median_price DECIMAL(10,2),
+    transaction_count INTEGER,
+    confidence_score INTEGER,
+    geom GEOMETRY(MULTIPOLYGON, 4326)
+);</code></pre>
+            
+            <h3>PostGIS Spatial Functions</h3>
+            <table>
+                <tr>
+                    <th>Function</th>
+                    <th>Purpose</th>
+                    <th>Usage</th>
+                </tr>
+                <tr>
+                    <td><code>ST_Within()</code></td>
+                    <td>Point in polygon test</td>
+                    <td>Assign transactions to zones</td>
+                </tr>
+                <tr>
+                    <td><code>ST_Contains()</code></td>
+                    <td>Polygon contains point</td>
+                    <td>Cadastre building matching</td>
+                </tr>
+                <tr>
+                    <td><code>ST_Distance()</code></td>
+                    <td>Distance calculation</td>
+                    <td>Find nearest building</td>
+                </tr>
+                <tr>
+                    <td><code>ST_Centroid()</code></td>
+                    <td>Polygon center point</td>
+                    <td>Zone location for ML</td>
+                </tr>
+                <tr>
+                    <td><code>GIST index</code></td>
+                    <td>Spatial indexing</td>
+                    <td>10,000x faster queries</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- ETL SECTION -->
+        <div id="etl" class="section searchable">
+            <h2>ETL Pipeline</h2>
+            
+            <h3>Pipeline Overview</h3>
+            <div class="diagram">
+EXTRACT              TRANSFORM                    LOAD
+───────              ─────────                    ────
+DVF CSV    →    Clean & Filter    →    PostgreSQL + PostGIS
+Cadastre   →    Calculate Metrics →    Spatial Indexes
+Boundaries →    Validate Data     →    GeoJSON Export
+            </div>
+            
+            <h3>Data Filtering Rules</h3>
+            <table>
+                <tr>
+                    <th>Rule</th>
+                    <th>Filter</th>
+                    <th>Records Removed</th>
+                </tr>
+                <tr>
+                    <td>Sales only</td>
+                    <td><code>nature_mutation = 'Vente'</code></td>
+                    <td>~15%</td>
+                </tr>
+                <tr>
+                    <td>Residential</td>
+                    <td><code>type_local IN ('Maison', 'Appartement')</code></td>
+                    <td>~25%</td>
+                </tr>
+                <tr>
+                    <td>Has price</td>
+                    <td><code>valeur_fonciere > 0</code></td>
+                    <td>~5%</td>
+                </tr>
+                <tr>
+                    <td>Has surface</td>
+                    <td><code>surface_reelle_bati > 0</code></td>
+                    <td>~10%</td>
+                </tr>
+                <tr>
+                    <td>Has coordinates</td>
+                    <td><code>longitude/latitude NOT NULL</code></td>
+                    <td>~8%</td>
+                </tr>
+                <tr>
+                    <td>Price outliers</td>
+                    <td><code>100 < price_per_m2 < 50,000</code></td>
+                    <td>~3%</td>
+                </tr>
+                <tr>
+                    <td>Surface outliers</td>
+                    <td><code>9 ≤ surface ≤ 500 m²</code></td>
+                    <td>~8%</td>
+                </tr>
+            </table>
+            
+            <div class="highlight">
+                <strong>Result:</strong> 3.8M raw → 997K clean (26% retention rate)
+            </div>
+            
+            <h3>Price Calculation</h3>
+            <pre><code># Price per square meter
+df['price_per_m2'] = df['valeur_fonciere'] / df['surface_reelle_bati']
+
+# Example:
+# valeur_fonciere = €350,000
+# surface_reelle_bati = 75 m²
+# price_per_m2 = €4,667/m²</code></pre>
+            
+            <h3>Batch Processing</h3>
+            <pre><code># Save in chunks of 50,000 to manage memory
+chunk_size = 50000
+for i in range(0, len(df), chunk_size):
+    chunk = df.iloc[i:i+chunk_size]
+    chunk.to_sql('transactions', engine, if_exists='append')</code></pre>
+            
+            <h3>Cadastre Building Matching</h3>
+            <p>For each transaction point, find the containing building polygon from cadastre data:</p>
+            <pre><code># Build spatial index on cadastre
+from shapely import STRtree
+tree = STRtree(buildings_gdf.geometry)
+
+# Query for containing building
+candidates = tree.query(transaction_point)
+for idx in candidates:
+    if buildings_gdf.geometry.iloc[idx].contains(transaction_point):
+        return buildings_gdf.geometry.iloc[idx]</code></pre>
+            
+            <table>
+                <tr>
+                    <th>Area Type</th>
+                    <th>Match Rate</th>
+                    <th>Reason</th>
+                </tr>
+                <tr>
+                    <td>Paris</td>
+                    <td>25%</td>
+                    <td>Dense, good geocoding</td>
+                </tr>
+                <tr>
+                    <td>Urban</td>
+                    <td>18%</td>
+                    <td>Mix of new/old</td>
+                </tr>
+                <tr>
+                    <td>Rural</td>
+                    <td>8%</td>
+                    <td>Sparse cadastre</td>
+                </tr>
+                <tr>
+                    <td><strong>Overall</strong></td>
+                    <td><strong>14.8%</strong></td>
+                    <td>-</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- ML SECTION -->
+        <div id="ml" class="section searchable">
+            <h2>Machine Learning Model</h2>
+            
+            <h3>3-Component Architecture</h3>
+            <div class="diagram">
+┌─────────────────────────────────────────────────────────────────────┐
+│                    FINAL PREDICTION                                  │
+│                                                                      │
+│   predicted_price = spatial_component × temporal_component          │
+│                     × smoothing_weight + parent × (1 - weight)      │
+└─────────────────────────────────────────────────────────────────────┘
+                              ▲
+          ┌───────────────────┼───────────────────┐
+          │                   │                   │
+┌─────────┴─────────┐ ┌──────┴──────┐ ┌─────────┴─────────┐
+│ SPATIAL COMPONENT │ │  TEMPORAL   │ │   HIERARCHICAL    │
+│    (LightGBM)     │ │  COMPONENT  │ │    SMOOTHING      │
+├───────────────────┤ ├─────────────┤ ├───────────────────┤
+│ Features:         │ │ -5.38%/year │ │ weight = n/50     │
+│ • latitude        │ │ trend       │ │                   │
+│ • longitude       │ │             │ │ Borrows from      │
+│ • surface_m2      │ │ Adjusts to  │ │ parent level      │
+│ • property_type   │ │ target date │ │ when data sparse  │
+│ • dept_median     │ │             │ │                   │
+└───────────────────┘ └─────────────┘ └───────────────────┘
+            </div>
+            
+            <h3>Model Performance</h3>
+            <table>
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                    <th>Interpretation</th>
+                </tr>
+                <tr>
+                    <td>R² Score</td>
+                    <td>0.517</td>
+                    <td>52% variance explained</td>
+                </tr>
+                <tr>
+                    <td>Cross-validation</td>
+                    <td>5-fold</td>
+                    <td>Robust evaluation</td>
+                </tr>
+                <tr>
+                    <td>Annual Trend</td>
+                    <td>-5.38%</td>
+                    <td>Price decline per year</td>
+                </tr>
+            </table>
+            
+            <h3>Hierarchical Smoothing Formula</h3>
+            <pre><code># Weight based on transaction count
+weight = min(1.0, n / 50)
+
+# Smoothed estimate
+smoothed = weight × local_median + (1 - weight) × parent_median</code></pre>
+            
+            <h4>Smoothing Examples</h4>
+            <table>
+                <tr>
+                    <th>Transactions</th>
+                    <th>Weight</th>
+                    <th>Local %</th>
+                    <th>Parent %</th>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td>0.02</td>
+                    <td>2%</td>
+                    <td>98%</td>
+                </tr>
+                <tr>
+                    <td>10</td>
+                    <td>0.20</td>
+                    <td>20%</td>
+                    <td>80%</td>
+                </tr>
+                <tr>
+                    <td>25</td>
+                    <td>0.50</td>
+                    <td>50%</td>
+                    <td>50%</td>
+                </tr>
+                <tr>
+                    <td>50+</td>
+                    <td>1.00</td>
+                    <td>100%</td>
+                    <td>0%</td>
+                </tr>
+            </table>
+            
+            <h3>LightGBM Configuration</h3>
+            <pre><code>params = {
+    'objective': 'regression',
+    'metric': 'rmse',
+    'num_leaves': 31,
+    'learning_rate': 0.05,
+    'feature_fraction': 0.8,
+    'bagging_fraction': 0.8,
+    'bagging_freq': 5,
+    'n_estimators': 500,
+    'max_depth': 12,
+    'min_child_samples': 20,
+    'reg_alpha': 0.1,
+    'reg_lambda': 0.1
+}</code></pre>
+            
+            <h3>Confidence Score Calculation</h3>
+            <pre><code>def calculate_confidence(n, ci_width, median, recency_months):
+    # Volume component (0-40 points)
+    volume_score = min(40, n * 2)
+    
+    # Precision component (0-30 points)
+    relative_ci = ci_width / median
+    precision_score = max(0, 30 - relative_ci * 50)
+    
+    # Recency component (0-30 points)
+    recency_score = max(0, 30 - recency_months)
+    
+    return volume_score + precision_score + recency_score</code></pre>
+            
+            <table>
+                <tr>
+                    <th>Confidence</th>
+                    <th>Score Range</th>
+                    <th>Meaning</th>
+                </tr>
+                <tr>
+                    <td>High</td>
+                    <td>70-100</td>
+                    <td>Reliable estimate</td>
+                </tr>
+                <tr>
+                    <td>Medium</td>
+                    <td>50-69</td>
+                    <td>Moderate uncertainty</td>
+                </tr>
+                <tr>
+                    <td>Low</td>
+                    <td>30-49</td>
+                    <td>High uncertainty</td>
+                </tr>
+                <tr>
+                    <td>Estimated</td>
+                    <td>0-29</td>
+                    <td>Heavily smoothed</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- AGGREGATION SECTION -->
+        <div id="aggregation" class="section searchable">
+            <h2>Spatial Aggregation</h2>
+            
+            <h3>Aggregation Pipeline</h3>
+            <div class="diagram">
+Country (1) → Region (13) → Department (96) → Commune (31K) → Postcode (5.7K) → Parcel (643K)
+    ↓              ↓              ↓                ↓                ↓              ↓
+ 997K tx       77K avg        10K avg           32 avg          174 avg        1.6 avg
+    ↓              ↓              ↓                ↓                ↓              ↓
+100% High     100% High       95% High         15% High        20% High        5% High
+            </div>
+            
+            <h3>Spatial Join Performance</h3>
+            <table>
+                <tr>
+                    <th>Approach</th>
+                    <th>Complexity</th>
+                    <th>Time</th>
+                </tr>
+                <tr>
+                    <td>Without index</td>
+                    <td>O(n × m) = 31 billion checks</td>
+                    <td>~250 days</td>
+                </tr>
+                <tr>
+                    <td>With GIST index</td>
+                    <td>O(n × log m) = 3 million checks</td>
+                    <td>~5 minutes</td>
+                </tr>
+            </table>
+            
+            <div class="highlight">
+                <strong>Speedup:</strong> 10,000x faster with spatial indexing!
+            </div>
+            
+            <h3>Spatial Join SQL</h3>
+            <pre><code>SELECT 
+    zones.code,
+    zones.name,
+    COUNT(*) as transaction_count,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY t.price_per_m2) as median
+FROM zones
+JOIN transactions t ON ST_Within(t.geom, zones.geom)
+GROUP BY zones.code, zones.name;</code></pre>
+            
+            <h3>File Output Structure</h3>
+            <pre><code>docs/data/
+├── country.json        (1 zone, 0.5 MB)
+├── region.json         (13 zones, 1.2 MB)
+├── departement.json    (96 zones, 3.5 MB)
+├── commune.json        (31,059 zones, 22 MB)
+├── postcode.json       (5,737 zones, 12 MB)
+└── parcel/
+    ├── 01.json         (Ain, 2.1 MB)
+    ├── 02.json         (Aisne, 1.8 MB)
+    ├── ...
+    ├── 75.json         (Paris, 9.1 MB) ← Largest
+    └── 95.json         (Val-d'Oise, 3.2 MB)
+
+TOTAL: 250 MB (93 parcel files)</code></pre>
+            
+            <h3>GeoJSON Format</h3>
+            <pre><code>{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "75056",
+        "name": "Paris",
+        "level": "commune",
+        "median_price": 8531.45,
+        "lower_bound": 7200.00,
+        "upper_bound": 10500.00,
+        "transaction_count": 45678,
+        "confidence_score": 98,
+        "estimate_quality": "High"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [[[[2.22, 48.82], ...]]]
+      }
+    }
+  ]
+}</code></pre>
+            
+            <h3>Lazy Loading Strategy</h3>
+            <p>Parcel files split by department for lazy loading:</p>
+            <ul>
+                <li>93 files instead of 1 (208 MB → 1-9 MB each)</li>
+                <li>Load only visible departments in viewport</li>
+                <li>Max 3 departments in memory at once</li>
+                <li>Unload when panning away</li>
+            </ul>
+        </div>
+        
+        <!-- FRONTEND SECTION -->
+        <div id="frontend" class="section searchable">
+            <h2>Frontend Visualization</h2>
+            
+            <h3>Technology Stack</h3>
+            <div class="tech-stack">
+                <span class="tech-badge">Mapbox GL JS</span>
+                <span class="tech-badge">HTML5</span>
+                <span class="tech-badge">CSS3</span>
+                <span class="tech-badge">Vanilla JavaScript</span>
+            </div>
+            
+            <h4>Why Mapbox GL JS?</h4>
+            <ul>
+                <li><strong>WebGL-based:</strong> Hardware-accelerated rendering</li>
+                <li><strong>Vector tiles:</strong> Smooth zooming, no pixelation</li>
+                <li><strong>GeoJSON support:</strong> Direct loading of export format</li>
+                <li><strong>Data-driven styling:</strong> Choropleth via expressions</li>
+            </ul>
+            
+            <h3>Zoom-Based Layer Switching</h3>
+            <table>
+                <tr>
+                    <th>Zoom Level</th>
+                    <th>Visible Layer</th>
+                    <th>Zones Shown</th>
+                </tr>
+                <tr>
+                    <td>0-4</td>
+                    <td>Country</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>5-6</td>
+                    <td>Region</td>
+                    <td>13</td>
+                </tr>
+                <tr>
+                    <td>7-8</td>
+                    <td>Department</td>
+                    <td>96</td>
+                </tr>
+                <tr>
+                    <td>9-11</td>
+                    <td>Commune</td>
+                    <td>31,059</td>
+                </tr>
+                <tr>
+                    <td>12-13</td>
+                    <td>Postcode</td>
+                    <td>5,737</td>
+                </tr>
+                <tr>
+                    <td>14+</td>
+                    <td>Parcel</td>
+                    <td>~642,909</td>
+                </tr>
+            </table>
+            
+            <h3>Choropleth Color Scale</h3>
+            <table>
+                <tr>
+                    <th>Price (€/m²)</th>
+                    <th>Color</th>
+                    <th>Meaning</th>
+                </tr>
+                <tr>
+                    <td>&lt; €1,000</td>
+                    <td style="background:#2166ac;color:white;padding:5px;">#2166ac</td>
+                    <td>Very cheap (rural)</td>
+                </tr>
+                <tr>
+                    <td>€1,000-2,000</td>
+                    <td style="background:#67a9cf;color:white;padding:5px;">#67a9cf</td>
+                    <td>Cheap</td>
+                </tr>
+                <tr>
+                    <td>€2,000-3,000</td>
+                    <td style="background:#d1e5f0;padding:5px;">#d1e5f0</td>
+                    <td>Below average</td>
+                </tr>
+                <tr>
+                    <td>€3,000-5,000</td>
+                    <td style="background:#f7f7f7;padding:5px;">#f7f7f7</td>
+                    <td>Average</td>
+                </tr>
+                <tr>
+                    <td>€5,000-8,000</td>
+                    <td style="background:#fddbc7;padding:5px;">#fddbc7</td>
+                    <td>Above average</td>
+                </tr>
+                <tr>
+                    <td>€8,000-10,000</td>
+                    <td style="background:#ef8a62;color:white;padding:5px;">#ef8a62</td>
+                    <td>Expensive</td>
+                </tr>
+                <tr>
+                    <td>&gt; €10,000</td>
+                    <td style="background:#b2182b;color:white;padding:5px;">#b2182b</td>
+                    <td>Very expensive</td>
+                </tr>
+            </table>
+            
+            <h3>Mapbox Expression for Colors</h3>
+            <pre><code>paint: {
+    'fill-color': [
+        'step',
+        ['get', 'median_price'],
+        '#2166ac',      // < €1,000
+        1000, '#67a9cf',
+        2000, '#d1e5f0',
+        3000, '#f7f7f7',
+        5000, '#fddbc7',
+        8000, '#ef8a62',
+        10000, '#b2182b' // > €10,000
+    ],
+    'fill-opacity': 0.7
+}</code></pre>
+            
+            <h3>Deployment</h3>
+            <ul>
+                <li><strong>Host:</strong> GitHub Pages</li>
+                <li><strong>URL:</strong> https://username.github.io/france-property-prices/</li>
+                <li><strong>Source:</strong> /docs folder</li>
+                <li><strong>SSL:</strong> Automatic HTTPS</li>
+                <li><strong>CDN:</strong> Global distribution</li>
+            </ul>
+        </div>
+        
+        <!-- COMMANDS SECTION -->
+        <div id="commands" class="section searchable">
+            <h2>Command Reference</h2>
+            
+            <h3>Docker Commands</h3>
+            <pre><code># Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f france_property_db
+
+# Connect to database
+docker exec -it france_property_db psql -U admin -d property_prices
+
+# Stop services
+docker-compose down
+
+# Rebuild after code changes
+docker-compose build --no-cache etl</code></pre>
+            
+            <h3>Database Verification Queries</h3>
+            <pre><code>-- Count all tables
+SELECT 
+    relname as table_name,
+    n_live_tup as row_count
+FROM pg_stat_user_tables
+WHERE schemaname = 'public'
+ORDER BY n_live_tup DESC;
+
+-- Check aggregates by level
+SELECT level, COUNT(*) as zones,
+       ROUND(AVG(median_price)) as avg_price
+FROM price_aggregates
+GROUP BY level
+ORDER BY 
+    CASE level
+        WHEN 'country' THEN 1
+        WHEN 'region' THEN 2
+        WHEN 'departement' THEN 3
+        WHEN 'commune' THEN 4
+        WHEN 'postcode' THEN 5
+        WHEN 'parcel' THEN 6
+    END;
+
+-- Check Paris prices
+SELECT level, code, name, median_price, transaction_count
+FROM price_aggregates
+WHERE code LIKE '75%'
+ORDER BY level, code;
+
+-- Verify spatial index usage
+EXPLAIN ANALYZE
+SELECT * FROM transactions
+WHERE ST_Within(geom, ST_MakeEnvelope(2.22, 48.82, 2.47, 48.90, 4326));</code></pre>
+            
+            <h3>ETL Commands</h3>
+            <pre><code># Run full ETL pipeline
+docker-compose run --rm etl python process_data.py
+
+# Run with specific years
+docker-compose run --rm etl python process_data.py --years 2022,2023
+
+# Download cadastre data
+docker-compose run --rm etl python download_cadastre.py</code></pre>
+            
+            <h3>File Operations</h3>
+            <pre><code># Check GeoJSON file sizes
+du -sh docs/data/*
+
+# Validate JSON
+python -m json.tool docs/data/region.json > /dev/null && echo "Valid"
+
+# Count features in GeoJSON
+jq '.features | length' docs/data/commune.json</code></pre>
+            
+            <h3>Performance Monitoring</h3>
+            <pre><code># Monitor container resources
+docker stats
+
+# Check database size
+docker exec -it france_property_db psql -U admin -d property_prices -c \
+  "SELECT pg_size_pretty(pg_database_size('property_prices'));"
+
+# Check CPU cores available
+python -c "import multiprocessing; print(f'CPUs: {multiprocessing.cpu_count()}')"</code></pre>
+        </div>
+    </div>
+    
+    <a href="#" class="back-to-top" id="backToTop">↑ Top</a>
+    
+    <script>
+        // Tab switching
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.section).classList.add('active');
+            });
+        });
+        
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchResults = document.getElementById('searchResults');
+        
+        function performSearch() {
+            const query = searchInput.value.toLowerCase().trim();
+            if (!query) {
+                searchResults.style.display = 'none';
+                return;
+            }
+            
+            // Remove previous highlights
+            document.querySelectorAll('mark').forEach(mark => {
+                mark.outerHTML = mark.innerHTML;
+            });
+            
+            const sections = document.querySelectorAll('.searchable');
+            let matches = [];
+            
+            sections.forEach(section => {
+                const text = section.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    const sectionId = section.id;
+                    const sectionName = document.querySelector(`[data-section="${sectionId}"]`).textContent;
+                    
+                    // Count occurrences
+                    const count = (text.match(new RegExp(query, 'gi')) || []).length;
+                    matches.push({ id: sectionId, name: sectionName, count });
+                    
+                    // Highlight matches
+                    const regex = new RegExp(`(${query})`, 'gi');
+                    section.innerHTML = section.innerHTML.replace(regex, '<mark>$1</mark>');
+                }
+            });
+            
+            if (matches.length > 0) {
+                searchResults.innerHTML = `Found "${query}" in: ` + 
+                    matches.map(m => `<a href="#" onclick="showSection('${m.id}')">${m.name} (${m.count})</a>`).join(', ');
+                searchResults.style.display = 'block';
+            } else {
+                searchResults.innerHTML = `No results for "${query}"`;
+                searchResults.style.display = 'block';
+            }
+        }
+        
+        function showSection(sectionId) {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            
+            document.querySelector(`[data-section="${sectionId}"]`).classList.add('active');
+            document.getElementById(sectionId).classList.add('active');
+        }
+        
+        searchBtn.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+        
+        // Back to top button
+        const backToTop = document.getElementById('backToTop');
+        window.addEventListener('scroll', () => {
+            backToTop.style.display = window.scrollY > 300 ? 'block' : 'none';
+        });
+        
+        backToTop.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    </script>
+</body>
+</html>

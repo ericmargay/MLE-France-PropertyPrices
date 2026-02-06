@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Prep - France Property Prices</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #1a1a2e;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+            color: white;
+            padding: 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            font-size: 1.4rem;
+            margin-bottom: 10px;
+        }
+        
+        .header small {
+            opacity: 0.9;
+        }
+        
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        #searchInput {
+            flex: 1;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        #searchBtn {
+            padding: 10px 20px;
+            background: #1a1a2e;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .search-results {
+            background: #fff3cd;
+            color: #333;
+            padding: 10px 20px;
+            margin-top: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .search-results a {
+            color: #1a1a2e;
+            margin: 0 10px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 130px auto 40px;
+            padding: 20px;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 10px;
+        }
+        
+        .nav-tab {
+            padding: 10px 15px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .nav-tab:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .nav-tab.active {
+            background: #e94560;
+            color: white;
+        }
+        
+        .section {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        h2 {
+            color: #1a1a2e;
+            border-bottom: 3px solid #e94560;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        h3 {
+            color: #e94560;
+            margin: 25px 0 15px;
+        }
+        
+        h4 {
+            color: #333;
+            margin: 20px 0 10px;
+        }
+        
+        .qa-block {
+            background: #f8f9fa;
+            border-left: 4px solid #e94560;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .qa-block .question {
+            font-weight: bold;
+            color: #1a1a2e;
+            margin-bottom: 10px;
+        }
+        
+        .qa-block .answer {
+            color: #333;
+            padding-left: 15px;
+            border-left: 2px solid #ddd;
+        }
+        
+        .memorize {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .memorize h4 {
+            color: white;
+            margin-top: 0;
+        }
+        
+        .tip {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .script {
+            background: #1a1a2e;
+            color: #a8dadc;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-family: Georgia, serif;
+            font-style: italic;
+            line-height: 1.8;
+        }
+        
+        .script::before {
+            content: '"';
+            font-size: 3rem;
+            color: #e94560;
+            float: left;
+            margin-right: 10px;
+            line-height: 1;
+        }
+        
+        pre {
+            background: #1a1a2e;
+            color: #a8dadc;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        code {
+            background: #e8e8e8;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        th {
+            background: #1a1a2e;
+            color: white;
+        }
+        
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .checklist li {
+            padding: 10px 0 10px 35px;
+            position: relative;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .checklist li::before {
+            content: '☐';
+            position: absolute;
+            left: 0;
+            font-size: 1.2rem;
+        }
+        
+        .vocab-table {
+            font-size: 0.95rem;
+        }
+        
+        .vocab-table td:first-child {
+            font-weight: bold;
+            color: #1a1a2e;
+        }
+        
+        .vocab-table td:nth-child(2) {
+            font-style: italic;
+            color: #666;
+        }
+        
+        mark {
+            background: #ffeb3b;
+            padding: 2px;
+        }
+        
+        .back-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #e94560;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin-top: 160px;
+                padding: 10px;
+            }
+            
+            .section {
+                padding: 15px;
+            }
+            
+            .nav-tab {
+                padding: 8px 10px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 Interview Prep - France Property Prices</h1>
+        <small>Private study guide - Q&A, scripts, and tips</small>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Search Q&A, tips... (e.g., smoothing, why LightGBM)">
+            <button id="searchBtn">Search</button>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+    </div>
+    
+    <div class="container">
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-section="quick">Quick Reference</button>
+            <button class="nav-tab" data-section="overview-qa">Overview Q&A</button>
+            <button class="nav-tab" data-section="arch-qa">Architecture Q&A</button>
+            <button class="nav-tab" data-section="etl-qa">ETL Q&A</button>
+            <button class="nav-tab" data-section="ml-qa">ML Q&A</button>
+            <button class="nav-tab" data-section="agg-qa">Aggregation Q&A</button>
+            <button class="nav-tab" data-section="frontend-qa">Frontend Q&A</button>
+            <button class="nav-tab" data-section="vocabulary">Vocabulary</button>
+        </div>
+        
+        <!-- QUICK REFERENCE -->
+        <div id="quick" class="section active searchable">
+            <h2>🚀 Quick Reference - Numbers to Memorize</h2>
+            
+            <div class="memorize">
+                <h4>📊 The Key Numbers</h4>
+                <table style="color:white; background:transparent;">
+                    <tr><td>Raw transactions</td><td><strong>3.8 million</strong></td></tr>
+                    <tr><td>Clean transactions</td><td><strong>997,252</strong> (26% retained)</td></tr>
+                    <tr><td>Output zones</td><td><strong>674,602</strong></td></tr>
+                    <tr><td>Model R²</td><td><strong>0.517</strong> (52% variance)</td></tr>
+                    <tr><td>Annual trend</td><td><strong>-5.38%</strong></td></tr>
+                    <tr><td>Smoothing formula</td><td><strong>weight = n/50</strong></td></tr>
+                    <tr><td>Spatial index speedup</td><td><strong>10,000x</strong></td></tr>
+                    <tr><td>Paris median</td><td><strong>€8,531/m²</strong></td></tr>
+                    <tr><td>National median</td><td><strong>€2,343/m²</strong></td></tr>
+                </table>
+            </div>
+            
+            <h3>30-Second Pitch</h3>
+            <div class="script">
+                I built an ML pipeline that processes 3.8 million French property transactions from government open data, cleans them down to 997,000 quality records, and produces price estimates for 674,000 geographic zones—from country level down to individual building parcels. The model achieves R² of 0.517 and uses hierarchical smoothing to handle sparse data at granular levels.
+            </div>
+            
+            <h3>2-Minute Pitch</h3>
+            <div class="script">
+                I built an end-to-end ML pipeline for French property price estimation. Starting with DVF data—3.8 million government transactions—I apply 6 filtering rules to get 997,000 clean records, about 26% of the original. The core innovation is a 3-component ML model: LightGBM for spatial patterns, linear regression for the -5.38% annual trend, and hierarchical Bayesian smoothing that borrows strength from parent zones when local data is sparse. For a commune with only 10 transactions, the smoothing weight is 0.2, so 80% of the estimate comes from the department average. This produces reliable estimates even for the 40% of communes with fewer than 10 transactions. The output is 674,000 zones across 6 geographic levels, exported as GeoJSON and visualized with Mapbox GL JS using zoom-based layer switching. The whole pipeline runs in Docker with PostgreSQL/PostGIS for spatial queries.
+            </div>
+            
+            <h3>📋 Pre-Interview Checklist</h3>
+            <ul class="checklist">
+                <li>Can explain 3.8M → 997K filtering (6 rules, 26% kept)</li>
+                <li>Can draw 4-layer architecture diagram</li>
+                <li>Can explain smoothing formula with numeric example</li>
+                <li>Know why LightGBM (handles mixed types, fast, feature importance)</li>
+                <li>Can explain spatial index 10,000x speedup</li>
+                <li>Know the 6 geographic levels with counts</li>
+                <li>Can explain lazy loading (93 files, viewport detection)</li>
+                <li>Have Docker commands ready to demo</li>
+            </ul>
+            
+            <h3>🎯 The "Why" Questions</h3>
+            <table>
+                <tr><th>Why...?</th><th>Answer</th></tr>
+                <tr><td>PostGIS</td><td>Native spatial functions, GIST indexes, ST_Within for spatial joins</td></tr>
+                <tr><td>LightGBM</td><td>Handles categorical features natively, fast training, good with tabular data</td></tr>
+                <tr><td>Hierarchical smoothing</td><td>Sparse data at parcel level (avg 1.6 tx), borrow from parents</td></tr>
+                <tr><td>Docker</td><td>Reproducible environment, easy deployment, consistent across machines</td></tr>
+                <tr><td>Mapbox GL JS</td><td>WebGL rendering, vector tiles, data-driven styling expressions</td></tr>
+                <tr><td>Split parcels by dept</td><td>208MB too large, lazy load 1-9MB per viewport</td></tr>
+            </table>
+        </div>
+        
+        <!-- OVERVIEW Q&A -->
+        <div id="overview-qa" class="section searchable">
+            <h2>Project Overview - Interview Q&A</h2>
+            
+            <div class="qa-block">
+                <div class="question">Q: Tell me about this project.</div>
+                <div class="answer">
+                    I built an ML pipeline that processes French property transactions to produce price estimates at multiple geographic levels. Starting with 3.8 million government records, I filter to 997,000 quality transactions, train a spatial ML model, and generate estimates for 674,000 zones—from country level down to individual building parcels. The output is an interactive choropleth map where users can explore prices at any zoom level.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: What was the biggest technical challenge?</div>
+                <div class="answer">
+                    Handling sparse data at granular levels. 40% of communes have fewer than 10 transactions, and most parcels have just 1-2. A single transaction isn't statistically reliable. I solved this with hierarchical Bayesian smoothing—zones with few transactions borrow strength from their parent level. The smoothing weight is n/50, so a parcel with 1 transaction gets 98% of its estimate from the postcode average.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: Why 26% retention rate? Isn't that low?</div>
+                <div class="answer">
+                    Actually, 26% is appropriate for this use case. The raw DVF data includes commercial properties, land-only sales, donations, and records with missing coordinates. I only keep residential sales (houses and apartments) with valid prices, surfaces, and geocoding. The 997,000 remaining records are high-quality and representative of the actual residential market.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: What would you do differently?</div>
+                <div class="answer">
+                    Three things: First, I'd add ClickHouse for faster analytical queries on historical data. Second, I'd implement incremental updates instead of full reprocessing—currently the pipeline rebuilds everything when new DVF data is released. Third, I'd add more features to the ML model like proximity to metro stations, schools, and green spaces.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: How would you scale this to all of Europe?</div>
+                <div class="answer">
+                    The architecture scales horizontally. Each country's data would be processed independently in parallel. The main challenges would be: different data formats per country, varying data quality, and harmonizing geographic hierarchies. I'd use Airflow to orchestrate country-specific DAGs and a shared PostGIS instance with country partitioning.
+                </div>
+            </div>
+            
+            <div class="tip">
+                <strong>Tip:</strong> Always mention specific numbers (3.8M, 997K, R²=0.517) - it shows you know your project deeply.
+            </div>
+        </div>
+        
+        <!-- ARCHITECTURE Q&A -->
+        <div id="arch-qa" class="section searchable">
+            <h2>Architecture - Interview Q&A</h2>
+            
+            <div class="qa-block">
+                <div class="question">Q: Walk me through your architecture.</div>
+                <div class="answer">
+                    It's a 4-layer architecture:<br><br>
+                    <strong>Infrastructure:</strong> Docker Compose orchestrating PostgreSQL, ETL, and web app containers.<br>
+                    <strong>Data:</strong> PostGIS for spatial storage with GIST indexes, GeoJSON for export.<br>
+                    <strong>Processing:</strong> Python ETL pipeline, LightGBM model, GeoPandas for spatial operations.<br>
+                    <strong>Presentation:</strong> Mapbox GL JS for rendering, FastAPI for the backend API.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: Why PostgreSQL with PostGIS instead of MongoDB or a specialized geo database?</div>
+                <div class="answer">
+                    PostGIS gives me the best of both worlds—relational integrity for transaction data plus mature spatial functions. I need ST_Within for spatial joins, ST_Distance for nearest-neighbor queries, and GIST indexes that make these 10,000x faster. MongoDB's geospatial is more limited, and specialized databases like Tile38 are overkill for batch processing.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: How do your Docker containers communicate?</div>
+                <div class="answer">
+                    Through a Docker network called property_network. The ETL container connects to PostgreSQL using the service name 'postgres' as the hostname—Docker's internal DNS resolves it. The web app also connects to PostgreSQL the same way. Port 5432 is exposed to the host for development access.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: What's the GIST index and why is it important?</div>
+                <div class="answer">
+                    GIST stands for Generalized Search Tree. It organizes spatial objects in an R-tree structure by bounding box. When I query "which commune contains this point?", without an index I'd check all 31,000 communes—31 billion checks for 1 million transactions. With GIST, I traverse the tree and only check ~3 candidates per point. That's 10,000x faster.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: How do you handle database credentials?</div>
+                <div class="answer">
+                    Environment variables in a .env file, loaded by Docker Compose. The .env is in .gitignore so credentials never hit the repo. The ETL container receives DATABASE_URL as an environment variable constructed from the individual POSTGRES_USER and POSTGRES_PASSWORD values.
+                </div>
+            </div>
+            
+            <div class="warning">
+                <strong>Watch out:</strong> If asked about "microservices vs monolith" - this is a modular monolith in containers, not true microservices. Be honest about it.
+            </div>
+        </div>
+        
+        <!-- ETL Q&A -->
+        <div id="etl-qa" class="section searchable">
+            <h2>ETL Pipeline - Interview Q&A</h2>
+            
+            <div class="qa-block">
+                <div class="question">Q: Walk me through your ETL pipeline.</div>
+                <div class="answer">
+                    <strong>Extract:</strong> Download DVF CSVs from data.gouv.fr and cadastre GeoJSON from cadastre.data.gouv.fr.<br>
+                    <strong>Transform:</strong> Apply 6 filtering rules (sales only, residential, valid price/surface/coordinates, outlier removal), calculate price per m², format postcodes.<br>
+                    <strong>Load:</strong> Batch insert to PostgreSQL with 50,000 row chunks, create spatial geometries, build GIST indexes.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: What are your 6 filtering rules?</div>
+                <div class="answer">
+                    1. Sales only (nature_mutation = 'Vente') - removes donations, exchanges<br>
+                    2. Residential (type_local IN ('Maison', 'Appartement')) - removes commercial, industrial<br>
+                    3. Has valid price (valeur_fonciere > 0)<br>
+                    4. Has valid surface (surface_reelle_bati > 0)<br>
+                    5. Has coordinates (latitude/longitude not null)<br>
+                    6. Remove outliers (€100-50,000/m², 9-500m² surface)
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: How did you choose those outlier thresholds?</div>
+                <div class="answer">
+                    Based on domain knowledge and data exploration. €100/m² is below construction cost anywhere in France—indicates data error. €50,000/m² exceeds even the most expensive Paris addresses—also likely errors. For surface, 9m² is the legal minimum for a habitable room in France, and 500m² covers 99.9% of legitimate residential properties.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: Why batch inserts of 50,000 rows?</div>
+                <div class="answer">
+                    Balance between memory usage and database round-trips. Smaller batches mean more network overhead. Larger batches risk memory issues—each row with geometry is about 1KB, so 50,000 rows is ~50MB in memory. I tested 10K, 50K, and 100K; 50K gave the best throughput without memory pressure.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: How do you handle the 22GB cadastre data?</div>
+                <div class="answer">
+                    Department by department. I never load the full 22GB. For each of 96 departments, I load its cadastre file (100-500MB), build a spatial index, match transactions to buildings, export the parcel GeoJSON, then free the memory before moving to the next department. Peak memory stays under 2GB.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: What's your cadastre matching rate?</div>
+                <div class="answer">
+                    About 15% overall. Higher in dense urban areas (25% in Paris) because geocoding is better and buildings are more consistently mapped. Lower in rural areas (8%) where cadastre data is sparser and transactions often geocode to town centroids rather than actual buildings. Unmatched transactions get estimated square footprints based on their surface area.
+                </div>
+            </div>
+        </div>
+        
+        <!-- ML Q&A -->
+        <div id="ml-qa" class="section searchable">
+            <h2>ML Model - Interview Q&A</h2>
+            
+            <div class="qa-block">
+                <div class="question">Q: Explain your ML model architecture.</div>
+                <div class="answer">
+                    Three components:<br><br>
+                    <strong>1. Spatial (LightGBM):</strong> Predicts base price from location, property type, surface. R²=0.517.<br>
+                    <strong>2. Temporal (Linear Regression):</strong> Captures -5.38% annual trend, adjusts predictions to target date.<br>
+                    <strong>3. Hierarchical Smoothing:</strong> Combines local estimate with parent level based on sample size. Weight = n/50.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: Why LightGBM over XGBoost or Random Forest?</div>
+                <div class="answer">
+                    Three reasons: First, LightGBM handles categorical features natively—I don't need to one-hot encode department codes or property types. Second, it's faster for my data size (1M rows) due to histogram-based splitting. Third, leaf-wise growth often captures spatial patterns better than level-wise. In my tests, LightGBM was 3x faster than XGBoost with similar accuracy.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: Walk me through the smoothing formula.</div>
+                <div class="answer">
+                    <pre>weight = min(1.0, n / 50)
+smoothed = weight × local + (1 - weight) × parent</pre>
+                    Example: A commune with 10 transactions at €2,000/m², parent department at €1,500/m²:<br>
+                    weight = 10/50 = 0.2<br>
+                    smoothed = 0.2 × €2,000 + 0.8 × €1,500 = €1,600/m²<br><br>
+                    The local estimate is pulled toward the more reliable parent estimate.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: Why n/50 specifically?</div>
+                <div class="answer">
+                    50 transactions is roughly where estimates stabilize statistically. With 50+ sales, the local median has a narrow enough confidence interval to trust. Below 50, variance is high. I tested thresholds from 20 to 100; 50 gave the best balance between local specificity and stability in cross-validation.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: What's R² of 0.517 mean in practice?</div>
+                <div class="answer">
+                    The model explains 52% of price variance from location and property characteristics alone. The remaining 48% is property-specific factors I don't have: renovation state, floor level, view, amenities. For aggregated zone estimates (not individual predictions), 0.517 is quite good—the aggregation further reduces noise.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: How do you calculate confidence scores?</div>
+                <div class="answer">
+                    Three components, 0-100 scale:<br>
+                    <strong>Volume (0-40):</strong> More transactions = higher confidence. 20+ gets max points.<br>
+                    <strong>Precision (0-30):</strong> Narrower confidence interval relative to price = higher score.<br>
+                    <strong>Recency (0-30):</strong> More recent transactions = higher confidence. Decays over 30 months.
+                </div>
+            </div>
+            
+            <div class="memorize">
+                <h4>🧠 Memorize This Example</h4>
+                <p>Commune with 10 transactions at €2,000/m², department average €1,500/m²:</p>
+                <p><strong>weight = 10/50 = 0.2</strong></p>
+                <p><strong>smoothed = 0.2 × €2,000 + 0.8 × €1,500 = €1,600/m²</strong></p>
+                <p>80% from parent because local data is sparse!</p>
+            </div>
+        </div>
+        
+        <!-- AGGREGATION Q&A -->
+        <div id="agg-qa" class="section searchable">
+            <h2>Aggregation - Interview Q&A</h2>
+            
+            <div class="qa-block">
+                <div class="question">Q: Explain your aggregation strategy.</div>
+                <div class="answer">
+                    I aggregate 997K transactions into 6 geographic levels: country (1), region (13), department (96), commune (31K), postcode (5.7K), and parcel (643K). Each level uses spatial joins to find which transactions belong to which zone, calculates statistics, and applies hierarchical smoothing from the parent level. Total output is 674,602 zones.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: How do spatial joins work?</div>
+                <div class="answer">
+                    Spatial joins answer "which points are inside which polygons" using PostGIS ST_Within. The GIST spatial index is critical—it organizes zones in an R-tree by bounding box. Without the index: 31 billion comparisons, 250 days. With index: 3 million comparisons, 5 minutes. That's 10,000x faster.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: Why split parcels into 93 files?</div>
+                <div class="answer">
+                    642K parcel polygons would be 208 MB in one file—too large to load at once in a browser. By splitting into department files averaging 2-3 MB each (max 9 MB for Paris), the frontend can lazy load only what's visible in the viewport. User views Paris? Load just 75.json. Pan to Lyon? Unload Paris, load 69.json. Memory stays bounded.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: What's the largest output file?</div>
+                <div class="answer">
+                    The Paris parcel file (75.json) at 9.1 MB with about 45,000 building polygons. Paris has the highest transaction density and complex building geometries. The commune file is also large at 22 MB for 31,059 municipal boundaries. Total output is 250 MB across all levels.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: How do you ensure consistency across levels?</div>
+                <div class="answer">
+                    Transaction counts must sum up the hierarchy. I verify that country = sum of regions = sum of departments. Prices should be within reasonable ranges—no child zone significantly higher/lower than parent without justification. I run validation queries after each ETL run.
+                </div>
+            </div>
+        </div>
+        
+        <!-- FRONTEND Q&A -->
+        <div id="frontend-qa" class="section searchable">
+            <h2>Frontend - Interview Q&A</h2>
+            
+            <div class="qa-block">
+                <div class="question">Q: Why Mapbox GL JS?</div>
+                <div class="answer">
+                    Four reasons: WebGL-based for hardware-accelerated rendering of 600K+ polygons. Vector tiles for smooth zooming without pixelation. Data-driven styling expressions for choropleth colors directly from price data. Native GeoJSON support matching my export format. I considered Leaflet but it struggles with many polygons.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: How does zoom-based layer switching work?</div>
+                <div class="answer">
+                    Each layer has minzoom and maxzoom properties. Country shows at zoom 0-4, regions at 5-6, departments at 7-8, communes at 9-11, postcodes at 12-13, parcels at 14+. Mapbox automatically shows/hides layers based on current zoom. Only one level is visible at a time, keeping the map readable and performant.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: Explain your lazy loading implementation.</div>
+                <div class="answer">
+                    When zoom reaches 14+, I determine which departments are visible by checking bounding box intersections with the viewport. I fetch only those department parcel files and add them as map sources. When the user pans away, I unload departments no longer visible. I cap at 3 loaded departments to bound memory. Viewing Paris loads 9 MB instead of 208 MB.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: How did you design the color scale?</div>
+                <div class="answer">
+                    Diverging blue-white-red scheme. Blue for cheap (cool markets), red for expensive (hot markets), white at the €3,000 midpoint near the national median. Breakpoints based on actual distribution: €1,000 for rural, €10,000+ for Paris. I also adjust opacity based on confidence—high confidence zones are more opaque.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: Why no React or Vue?</div>
+                <div class="answer">
+                    For this project, vanilla JavaScript is sufficient. The codebase is small (~500 lines), Mapbox handles most interactivity, and no framework means smaller bundle and simpler deployment to GitHub Pages. If I were adding user accounts, saved searches, or complex state management, I'd consider React.
+                </div>
+            </div>
+            
+            <div class="qa-block">
+                <div class="question">Q: Why GitHub Pages?</div>
+                <div class="answer">
+                    Free hosting, automatic HTTPS, global CDN, and push-to-deploy workflow. The 1 GB limit is plenty for 250 MB of GeoJSON. No server needed since all data is pre-computed. For a personal project demonstrating frontend skills, it's perfect.
+                </div>
+            </div>
+        </div>
+        
+        <!-- VOCABULARY -->
+        <div id="vocabulary" class="section searchable">
+            <h2>Technical Vocabulary</h2>
+            
+            <h3>Spatial Terms</h3>
+            <table class="vocab-table">
+                <tr><td>PostGIS</td><td>post-JISS</td><td>PostgreSQL spatial extension</td></tr>
+                <tr><td>GIST</td><td>jist</td><td>Generalized Search Tree index</td></tr>
+                <tr><td>ST_Within</td><td>S-T within</td><td>Point-in-polygon test</td></tr>
+                <tr><td>Spatial join</td><td>SPAY-shul</td><td>Join based on geography</td></tr>
+                <tr><td>Choropleth</td><td>KOR-oh-pleth</td><td>Map colored by data values</td></tr>
+                <tr><td>GeoJSON</td><td>jee-oh-JAY-son</td><td>Geographic JSON format</td></tr>
+                <tr><td>Bounding box</td><td>BOWN-ding</td><td>Rectangle around shape</td></tr>
+                <tr><td>Centroid</td><td>SEN-troyd</td><td>Center point of polygon</td></tr>
+            </table>
+            
+            <h3>ML Terms</h3>
+            <table class="vocab-table">
+                <tr><td>LightGBM</td><td>light-GBM</td><td>Gradient boosting framework</td></tr>
+                <tr><td>Hierarchical smoothing</td><td>high-er-ARK-ik-al</td><td>Borrow from parent levels</td></tr>
+                <tr><td>Cross-validation</td><td>cross-val</td><td>K-fold model evaluation</td></tr>
+                <tr><td>R² score</td><td>R-squared</td><td>Variance explained (0-1)</td></tr>
+                <tr><td>Feature importance</td><td>-</td><td>Which inputs matter most</td></tr>
+                <tr><td>Regularization</td><td>reg-yoo-lar-ih-ZAY-shun</td><td>Prevent overfitting</td></tr>
+            </table>
+            
+            <h3>Data Engineering Terms</h3>
+            <table class="vocab-table">
+                <tr><td>ETL</td><td>E-T-L</td><td>Extract, Transform, Load</td></tr>
+                <tr><td>Batch processing</td><td>-</td><td>Process in chunks</td></tr>
+                <tr><td>Lazy loading</td><td>LAY-zee</td><td>Load on demand</td></tr>
+                <tr><td>Connection pooling</td><td>-</td><td>Reuse database connections</td></tr>
+                <tr><td>Vectorization</td><td>vek-tor-ih-ZAY-shun</td><td>Operate on arrays, not loops</td></tr>
+            </table>
+            
+            <h3>French Geography Terms</h3>
+            <table class="vocab-table">
+                <tr><td>DVF</td><td>day-vay-eff</td><td>Demandes de Valeurs Foncières</td></tr>
+                <tr><td>Commune</td><td>koh-MOON</td><td>Municipality (like city)</td></tr>
+                <tr><td>Département</td><td>day-part-mohn</td><td>Department (like county)</td></tr>
+                <tr><td>Région</td><td>ray-zhee-OHN</td><td>Region (like state)</td></tr>
+                <tr><td>Cadastre</td><td>ka-DASS-tr</td><td>Land registry</td></tr>
+                <tr><td>Parcelle</td><td>par-SELL</td><td>Land parcel</td></tr>
+                <tr><td>Île-de-France</td><td>eel-duh-FRAHNSS</td><td>Paris region</td></tr>
+            </table>
+        </div>
+    </div>
+    
+    <a href="#" class="back-to-top" id="backToTop">↑ Top</a>
+    
+    <script>
+        // Tab switching
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.section).classList.add('active');
+            });
+        });
+        
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchResults = document.getElementById('searchResults');
+        
+        function performSearch() {
+            const query = searchInput.value.toLowerCase().trim();
+            if (!query) {
+                searchResults.style.display = 'none';
+                return;
+            }
+            
+            // Remove previous highlights
+            document.querySelectorAll('mark').forEach(mark => {
+                mark.outerHTML = mark.innerHTML;
+            });
+            
+            const sections = document.querySelectorAll('.searchable');
+            let matches = [];
+            
+            sections.forEach(section => {
+                const text = section.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    const sectionId = section.id;
+                    const sectionName = document.querySelector(`[data-section="${sectionId}"]`).textContent;
+                    
+                    const count = (text.match(new RegExp(query, 'gi')) || []).length;
+                    matches.push({ id: sectionId, name: sectionName, count });
+                    
+                    // Highlight matches (carefully to avoid breaking HTML)
+                    const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
+                    const textNodes = [];
+                    while(walker.nextNode()) textNodes.push(walker.currentNode);
+                    
+                    textNodes.forEach(node => {
+                        if (node.nodeValue.toLowerCase().includes(query)) {
+                            const regex = new RegExp(`(${query})`, 'gi');
+                            const span = document.createElement('span');
+                            span.innerHTML = node.nodeValue.replace(regex, '<mark>$1</mark>');
+                            node.parentNode.replaceChild(span, node);
+                        }
+                    });
+                }
+            });
+            
+            if (matches.length > 0) {
+                searchResults.innerHTML = `Found "${query}" in: ` + 
+                    matches.map(m => `<a href="#" onclick="showSection('${m.id}')">${m.name} (${m.count})</a>`).join(', ');
+                searchResults.style.display = 'block';
+            } else {
+                searchResults.innerHTML = `No results for "${query}"`;
+                searchResults.style.display = 'block';
+            }
+        }
+        
+        function showSection(sectionId) {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            
+            document.querySelector(`[data-section="${sectionId}"]`).classList.add('active');
+            document.getElementById(sectionId).classList.add('active');
+        }
+        
+        searchBtn.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+        
+        // Back to top
+        const backToTop = document.getElementById('backToTop');
+        window.addEventListener('scroll', () => {
+            backToTop.style.display = window.scrollY > 300 ? 'block' : 'none';
+        });
+        
+        backToTop.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    </script>
+</body>
+</html>
