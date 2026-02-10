@@ -5,835 +5,1666 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interview Prep - France Property Prices</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #1a1a2e;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
-            color: white;
-            padding: 20px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        
-        .header h1 {
-            font-size: 1.4rem;
-            margin-bottom: 10px;
-        }
-        
-        .header small {
-            opacity: 0.9;
-        }
-        
-        .search-container {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        #searchInput {
-            flex: 1;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 5px;
-            font-size: 1rem;
-        }
-        
-        #searchBtn {
-            padding: 10px 20px;
-            background: #1a1a2e;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        .search-results {
-            background: #fff3cd;
-            color: #333;
-            padding: 10px 20px;
-            margin-top: 10px;
-            border-radius: 5px;
-            display: none;
-        }
-        
-        .search-results a {
-            color: #1a1a2e;
-            margin: 0 10px;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 130px auto 40px;
-            padding: 20px;
-        }
-        
-        .nav-tabs {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            background: rgba(255,255,255,0.1);
-            padding: 10px;
-            border-radius: 10px;
-        }
-        
-        .nav-tab {
-            padding: 10px 15px;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        
-        .nav-tab:hover {
-            background: rgba(255,255,255,0.3);
-        }
-        
-        .nav-tab.active {
-            background: #e94560;
-            color: white;
-        }
-        
-        .section {
-            display: none;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        
-        .section.active {
-            display: block;
-        }
-        
-        h2 {
-            color: #1a1a2e;
-            border-bottom: 3px solid #e94560;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-        
-        h3 {
-            color: #e94560;
-            margin: 25px 0 15px;
-        }
-        
-        h4 {
-            color: #333;
-            margin: 20px 0 10px;
-        }
-        
-        .qa-block {
-            background: #f8f9fa;
-            border-left: 4px solid #e94560;
-            padding: 15px 20px;
-            margin: 15px 0;
-            border-radius: 0 5px 5px 0;
-        }
-        
-        .qa-block .question {
-            font-weight: bold;
-            color: #1a1a2e;
-            margin-bottom: 10px;
-        }
-        
-        .qa-block .answer {
-            color: #333;
-            padding-left: 15px;
-            border-left: 2px solid #ddd;
-        }
-        
-        .memorize {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin: 15px 0;
-        }
-        
-        .memorize h4 {
-            color: white;
-            margin-top: 0;
-        }
-        
-        .tip {
-            background: #d4edda;
-            border-left: 4px solid #28a745;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 0 5px 5px 0;
-        }
-        
-        .warning {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 0 5px 5px 0;
-        }
-        
-        .script {
-            background: #1a1a2e;
-            color: #a8dadc;
-            padding: 20px;
-            border-radius: 5px;
-            margin: 15px 0;
-            font-family: Georgia, serif;
-            font-style: italic;
-            line-height: 1.8;
-        }
-        
-        .script::before {
-            content: '"';
-            font-size: 3rem;
-            color: #e94560;
-            float: left;
-            margin-right: 10px;
-            line-height: 1;
-        }
-        
-        pre {
-            background: #1a1a2e;
-            color: #a8dadc;
-            padding: 15px;
-            border-radius: 5px;
-            overflow-x: auto;
-            margin: 15px 0;
-        }
-        
-        code {
-            background: #e8e8e8;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', monospace;
-        }
-        
-        pre code {
-            background: none;
-            padding: 0;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 15px 0;
-        }
-        
-        th, td {
-            border: 1px solid #ddd;
-            padding: 12px;
-            text-align: left;
-        }
-        
-        th {
-            background: #1a1a2e;
-            color: white;
-        }
-        
-        tr:nth-child(even) {
-            background: #f9f9f9;
-        }
-        
-        .checklist {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .checklist li {
-            padding: 10px 0 10px 35px;
-            position: relative;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .checklist li::before {
-            content: '☐';
-            position: absolute;
-            left: 0;
-            font-size: 1.2rem;
-        }
-        
-        .vocab-table {
-            font-size: 0.95rem;
-        }
-        
-        .vocab-table td:first-child {
-            font-weight: bold;
-            color: #1a1a2e;
-        }
-        
-        .vocab-table td:nth-child(2) {
-            font-style: italic;
-            color: #666;
-        }
-        
-        mark {
-            background: #ffeb3b;
-            padding: 2px;
-        }
-        
-        .back-to-top {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #e94560;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            text-decoration: none;
-            display: none;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #1a1a2e; }
+        .header { background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%); color: white; padding: 12px 20px; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
+        .header h1 { font-size: 1.2rem; margin-bottom: 3px; }
+        .header .stats { font-size: 0.8rem; opacity: 0.9; margin-bottom: 6px; }
+        .search-container { display: flex; gap: 6px; }
+        #searchInput { flex: 1; padding: 7px 12px; border: none; border-radius: 4px; font-size: 0.9rem; }
+        #searchBtn, #clearBtn { padding: 7px 14px; background: #1a1a2e; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        #clearBtn { background: #555; }
+        .search-results { background: #fff3cd; color: #333; padding: 6px 12px; margin-top: 6px; border-radius: 4px; display: none; font-size: 0.85rem; }
+        .search-results a { color: #1a1a2e; margin: 0 6px; cursor: pointer; text-decoration: underline; }
+        .container { max-width: 1200px; margin: 115px auto 40px; padding: 12px; }
+        .nav-tabs { display: flex; gap: 3px; margin-bottom: 12px; flex-wrap: wrap; background: rgba(255,255,255,0.1); padding: 6px; border-radius: 6px; }
+        .nav-tab { padding: 6px 10px; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .nav-tab:hover { background: rgba(255,255,255,0.3); }
+        .nav-tab.active { background: #e94560; }
+        .nav-tab .count { background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 8px; font-size: 0.7rem; margin-left: 3px; }
+        .section { display: none; background: white; padding: 20px; border-radius: 8px; }
+        .section.active { display: block; }
+        h2 { color: #1a1a2e; border-bottom: 3px solid #e94560; padding-bottom: 6px; margin-bottom: 15px; font-size: 1.2rem; }
+        h3 { color: #e94560; margin: 18px 0 10px; font-size: 1rem; }
+        .qa-block { background: #f8f9fa; border-left: 4px solid #e94560; padding: 10px 12px; margin: 10px 0; border-radius: 0 5px 5px 0; }
+        .qa-block .question { font-weight: 600; color: #1a1a2e; margin-bottom: 8px; font-size: 0.9rem; line-height: 1.4; }
+        .qa-block .question .kw { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1px 6px; border-radius: 3px; font-weight: 700; }
+        .qa-block textarea { width: 100%; min-height: 120px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 0.85rem; line-height: 1.5; resize: vertical; background: white; }
+        .qa-block textarea:focus { border-color: #e94560; outline: none; box-shadow: 0 0 0 2px rgba(233,69,96,0.2); }
+        .qa-block .btn-row { margin-top: 6px; }
+        .qa-block .save-btn { background: #28a745; color: white; border: none; padding: 4px 12px; border-radius: 3px; cursor: pointer; font-size: 0.75rem; }
+        .qa-block .reset-btn { background: #6c757d; color: white; border: none; padding: 4px 12px; border-radius: 3px; cursor: pointer; font-size: 0.75rem; margin-left: 5px; }
+        .memorize { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; border-radius: 6px; margin: 10px 0; }
+        .memorize h4 { color: white; margin: 0 0 8px 0; font-size: 0.95rem; }
+        .memorize table { width: 100%; border-collapse: collapse; }
+        .memorize table td { padding: 5px 8px; border: none; color: white; font-size: 0.85rem; background: transparent !important; }
+        .memorize table tr { background: transparent !important; }
+        .memorize table tr:nth-child(odd) td { background: rgba(255,255,255,0.08) !important; }
+        .memorize table tr:nth-child(even) td { background: transparent !important; }
+        .tip { background: #d4edda; border-left: 4px solid #28a745; padding: 10px; margin: 10px 0; border-radius: 0 4px 4px 0; font-size: 0.85rem; }
+        .script { background: #1a1a2e; color: #a8dadc; padding: 12px; border-radius: 4px; margin: 10px 0; font-family: Georgia, serif; font-style: italic; line-height: 1.6; font-size: 0.85rem; }
+        pre { background: #1a1a2e; color: #a8dadc; padding: 10px; border-radius: 4px; overflow-x: auto; margin: 10px 0; font-size: 0.8rem; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.85rem; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #1a1a2e; color: white; }
+        .checklist { list-style: none; padding: 0; }
+        .checklist li { padding: 6px 0 6px 28px; position: relative; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+        .checklist li::before { content: '☐'; position: absolute; left: 0; }
+        .vocab-table td:first-child { font-weight: bold; color: #1a1a2e; }
+        .vocab-table td:nth-child(2) { font-style: italic; color: #666; }
+        mark { background: #ffeb3b; padding: 1px 2px; }
+        .back-to-top { position: fixed; bottom: 15px; right: 15px; background: #e94560; color: white; width: 40px; height: 40px; border-radius: 50%; text-align: center; line-height: 40px; text-decoration: none; display: none; cursor: pointer; font-size: 1.2rem; }
+        .category-header { background: #1a1a2e; color: white; padding: 6px 10px; margin: 20px 0 10px; border-radius: 3px; font-size: 0.85rem; }
+        .saved-indicator { color: #28a745; font-size: 0.75rem; margin-left: 8px; display: none; }
         @media (max-width: 768px) {
-            .container {
-                margin-top: 160px;
-                padding: 10px;
-            }
-            
-            .section {
-                padding: 15px;
-            }
-            
-            .nav-tab {
-                padding: 8px 10px;
-                font-size: 0.8rem;
-            }
+            .container { margin-top: 130px; }
+            .nav-tab .count { display: none; }
         }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🎯 Interview Prep - France Property Prices</h1>
-        <small>Private study guide - Q&A, scripts, and tips</small>
+        <div class="stats">📝 90 Questions | 9 Categories | Edit answers directly | Auto-saves to browser</div>
         <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Search Q&A, tips... (e.g., smoothing, why LightGBM)">
+            <input type="text" id="searchInput" placeholder="Search... (PostGIS, smoothing, LightGBM, spatial)">
             <button id="searchBtn">Search</button>
+            <button id="clearBtn">Clear</button>
         </div>
         <div class="search-results" id="searchResults"></div>
     </div>
     
     <div class="container">
         <div class="nav-tabs">
-            <button class="nav-tab active" data-section="quick">Quick Reference</button>
-            <button class="nav-tab" data-section="overview-qa">Overview Q&A</button>
-            <button class="nav-tab" data-section="arch-qa">Architecture Q&A</button>
-            <button class="nav-tab" data-section="etl-qa">ETL Q&A</button>
-            <button class="nav-tab" data-section="ml-qa">ML Q&A</button>
-            <button class="nav-tab" data-section="agg-qa">Aggregation Q&A</button>
-            <button class="nav-tab" data-section="frontend-qa">Frontend Q&A</button>
-            <button class="nav-tab" data-section="vocabulary">Vocabulary</button>
+            <button class="nav-tab active" data-section="quick">Quick Ref</button>
+            <button class="nav-tab" data-section="overview">Overview<span class="count">20</span></button>
+            <button class="nav-tab" data-section="arch">Architecture<span class="count">11</span></button>
+            <button class="nav-tab" data-section="etl">ETL<span class="count">12</span></button>
+            <button class="nav-tab" data-section="ml">ML Model<span class="count">14</span></button>
+            <button class="nav-tab" data-section="agg">Aggregation<span class="count">10</span></button>
+            <button class="nav-tab" data-section="front">Frontend<span class="count">10</span></button>
+            <button class="nav-tab" data-section="perf">Performance<span class="count">8</span></button>
+            <button class="nav-tab" data-section="behavioral">Behavioral<span class="count">5</span></button>
+            <button class="nav-tab" data-section="vocab">Vocab</button>
         </div>
         
         <!-- QUICK REFERENCE -->
         <div id="quick" class="section active searchable">
-            <h2>🚀 Quick Reference - Numbers to Memorize</h2>
+            <h2>🚀 Quick Reference</h2>
             
             <div class="memorize">
-                <h4>📊 The Key Numbers</h4>
-                <table style="color:white; background:transparent;">
+                <h4>📊 Key Numbers (Memorize!)</h4>
+                <table>
                     <tr><td>Raw transactions</td><td><strong>3.8 million</strong></td></tr>
                     <tr><td>Clean transactions</td><td><strong>997,252</strong> (26% retained)</td></tr>
                     <tr><td>Output zones</td><td><strong>674,602</strong></td></tr>
                     <tr><td>Model R²</td><td><strong>0.517</strong> (52% variance)</td></tr>
                     <tr><td>Annual trend</td><td><strong>-5.38%</strong></td></tr>
-                    <tr><td>Smoothing formula</td><td><strong>weight = n/50</strong></td></tr>
+                    <tr><td>Smoothing threshold</td><td><strong>weight = n/50</strong></td></tr>
                     <tr><td>Spatial index speedup</td><td><strong>10,000x</strong></td></tr>
                     <tr><td>Paris median</td><td><strong>€8,531/m²</strong></td></tr>
                     <tr><td>National median</td><td><strong>€2,343/m²</strong></td></tr>
+                    <tr><td>Cadastre match rate</td><td><strong>14.8%</strong> (25% Paris, 8% rural)</td></tr>
+                </table>
+            </div>
+            
+            <div class="memorize">
+                <h4>📐 6 Geographic Levels</h4>
+                <table>
+                    <tr><td>Country</td><td><strong>1</strong></td><td>100% High</td></tr>
+                    <tr><td>Region</td><td><strong>13</strong></td><td>100% High</td></tr>
+                    <tr><td>Department</td><td><strong>96</strong></td><td>95% High</td></tr>
+                    <tr><td>Commune</td><td><strong>31,059</strong></td><td>15% High</td></tr>
+                    <tr><td>Postcode</td><td><strong>5,737</strong></td><td>20% High</td></tr>
+                    <tr><td>Parcel</td><td><strong>642,909</strong></td><td>5% High</td></tr>
                 </table>
             </div>
             
             <h3>30-Second Pitch</h3>
-            <div class="script">
-                I built an ML pipeline that processes 3.8 million French property transactions from government open data, cleans them down to 997,000 quality records, and produces price estimates for 674,000 geographic zones—from country level down to individual building parcels. The model achieves R² of 0.517 and uses hierarchical smoothing to handle sparse data at granular levels.
-            </div>
+            <div class="script">I built an ML pipeline that processes 3.8 million French property transactions from government open data, cleans them to 997,000 quality records, and produces price estimates for 674,000 geographic zones—from country down to building parcels. Model achieves R²=0.517 with hierarchical smoothing for sparse data.</div>
             
-            <h3>2-Minute Pitch</h3>
-            <div class="script">
-                I built an end-to-end ML pipeline for French property price estimation. Starting with DVF data—3.8 million government transactions—I apply 6 filtering rules to get 997,000 clean records, about 26% of the original. The core innovation is a 3-component ML model: LightGBM for spatial patterns, linear regression for the -5.38% annual trend, and hierarchical Bayesian smoothing that borrows strength from parent zones when local data is sparse. For a commune with only 10 transactions, the smoothing weight is 0.2, so 80% of the estimate comes from the department average. This produces reliable estimates even for the 40% of communes with fewer than 10 transactions. The output is 674,000 zones across 6 geographic levels, exported as GeoJSON and visualized with Mapbox GL JS using zoom-based layer switching. The whole pipeline runs in Docker with PostgreSQL/PostGIS for spatial queries.
+            <h3>🧠 Smoothing Formula (Draw this!)</h3>
+            <div class="memorize">
+                <pre style="background:rgba(0,0,0,0.3);color:white;margin:5px 0;padding:8px;">weight = min(1.0, n / 50)
+smoothed = weight × local + (1 - weight) × parent
+
+Example: Commune 10 tx at €2,000, dept avg €1,500:
+weight = 10/50 = 0.2
+smoothed = 0.2×€2,000 + 0.8×€1,500 = €1,600/m²</pre>
             </div>
             
             <h3>📋 Pre-Interview Checklist</h3>
             <ul class="checklist">
-                <li>Can explain 3.8M → 997K filtering (6 rules, 26% kept)</li>
-                <li>Can draw 4-layer architecture diagram</li>
-                <li>Can explain smoothing formula with numeric example</li>
-                <li>Know why LightGBM (handles mixed types, fast, feature importance)</li>
-                <li>Can explain spatial index 10,000x speedup</li>
-                <li>Know the 6 geographic levels with counts</li>
-                <li>Can explain lazy loading (93 files, viewport detection)</li>
-                <li>Have Docker commands ready to demo</li>
+                <li>3.8M → 997K filtering (6 rules, 26% kept)</li>
+                <li>4-layer architecture diagram</li>
+                <li>Smoothing formula with example</li>
+                <li>Why LightGBM (categories, fast, interpretable)</li>
+                <li>GIST spatial index 10,000x speedup</li>
+                <li>6 geographic levels with counts</li>
+                <li>Lazy loading (93 files, viewport)</li>
             </ul>
             
-            <h3>🎯 The "Why" Questions</h3>
+            <h3>🎯 Quick "Why" Answers</h3>
             <table>
                 <tr><th>Why...?</th><th>Answer</th></tr>
-                <tr><td>PostGIS</td><td>Native spatial functions, GIST indexes, ST_Within for spatial joins</td></tr>
-                <tr><td>LightGBM</td><td>Handles categorical features natively, fast training, good with tabular data</td></tr>
-                <tr><td>Hierarchical smoothing</td><td>Sparse data at parcel level (avg 1.6 tx), borrow from parents</td></tr>
-                <tr><td>Docker</td><td>Reproducible environment, easy deployment, consistent across machines</td></tr>
-                <tr><td>Mapbox GL JS</td><td>WebGL rendering, vector tiles, data-driven styling expressions</td></tr>
-                <tr><td>Split parcels by dept</td><td>208MB too large, lazy load 1-9MB per viewport</td></tr>
+                <tr><td>PostGIS</td><td>ST_Within, GIST indexes, native spatial</td></tr>
+                <tr><td>LightGBM</td><td>Handles categoricals, &lt;1min train, feature importance</td></tr>
+                <tr><td>Smoothing</td><td>Parcel avg 1.6 tx, borrow from parent</td></tr>
+                <tr><td>Docker</td><td>Reproducible, isolated, easy deploy</td></tr>
+                <tr><td>Mapbox</td><td>WebGL, vector tiles, expressions</td></tr>
+                <tr><td>Split files</td><td>208MB→93 files, lazy load</td></tr>
+                <tr><td>n/50</td><td>50 tx = statistical stability</td></tr>
             </table>
         </div>
         
-        <!-- OVERVIEW Q&A -->
-        <div id="overview-qa" class="section searchable">
-            <h2>Project Overview - Interview Q&A</h2>
+        <!-- OVERVIEW QUESTIONS -->
+        <div id="overview" class="section searchable">
+            <h2>Overview - 20 Questions</h2>
             
-            <div class="qa-block">
-                <div class="question">Q: Tell me about this project.</div>
-                <div class="answer">
-                    I built an ML pipeline that processes French property transactions to produce price estimates at multiple geographic levels. Starting with 3.8 million government records, I filter to 997,000 quality transactions, train a spatial ML model, and generate estimates for 674,000 zones—from country level down to individual building parcels. The output is an interactive choropleth map where users can explore prices at any zoom level.
-                </div>
+            <div class="category-header">Project Overview</div>
+            
+            <div class="qa-block" data-id="o1">
+                <div class="question">Q1: <span class="kw">Tell me about yourself</span> and this <span class="kw">project</span></div>
+                <textarea>I'm a data engineer at Ford with 2 years experience in automotive data. I built this to demonstrate geospatial data engineering skills.
+
+The project estimates property prices across France at 6 geographic levels - from country to individual building footprints. I process ~1M government transactions, combine with building geometry data, and create an interactive price map.
+
+Key challenges: data scale, ML model for price volatility and sparse data, responsive visualization for 600K+ building polygons.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: What was the biggest technical challenge?</div>
-                <div class="answer">
-                    Handling sparse data at granular levels. 40% of communes have fewer than 10 transactions, and most parcels have just 1-2. A single transaction isn't statistically reliable. I solved this with hierarchical Bayesian smoothing—zones with few transactions borrow strength from their parent level. The smoothing weight is n/50, so a parcel with 1 transaction gets 98% of its estimate from the postcode average.
-                </div>
+            <div class="qa-block" data-id="o2">
+                <div class="question">Q2: <span class="kw">Why</span> did you <span class="kw">choose this project</span>?</div>
+                <textarea>Specifically to match RealAdvisor job requirements. You need someone who can build end-to-end geospatial pipelines, work with PostGIS, create Mapbox visualizations, and handle large-scale data. This project demonstrates all of those.
+
+Also, real estate is a domain where data quality and geographic precision really matter - estimates need to be plausible and useful.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: Why 26% retention rate? Isn't that low?</div>
-                <div class="answer">
-                    Actually, 26% is appropriate for this use case. The raw DVF data includes commercial properties, land-only sales, donations, and records with missing coordinates. I only keep residential sales (houses and apartments) with valid prices, surfaces, and geocoding. The 997,000 remaining records are high-quality and representative of the actual residential market.
-                </div>
+            <div class="qa-block" data-id="o3">
+                <div class="question">Q3: What was the <span class="kw">most difficult part</span>?</div>
+                <textarea>Two things:
+
+1. Sparse data problem: Many rural areas have only 1-3 transactions/year. Solved with hierarchical smoothing - blending local estimates with regional averages based on sample size.
+
+2. Parcel-level visualization: With 640K building polygons, couldn't load everything at once. Implemented lazy loading by department and careful browser memory management.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: What would you do differently?</div>
-                <div class="answer">
-                    Three things: First, I'd add ClickHouse for faster analytical queries on historical data. Second, I'd implement incremental updates instead of full reprocessing—currently the pipeline rebuilds everything when new DVF data is released. Third, I'd add more features to the ML model like proximity to metro stations, schools, and green spaces.
-                </div>
+            <div class="qa-block" data-id="o4">
+                <div class="question">Q4: <span class="kw">How long</span> did this project take?</div>
+                <textarea>About 3-4 weeks:
+- Week 1: Data exploration, cleaning pipeline, database setup
+- Week 2: ML model development and validation
+- Week 3: Aggregation pipeline and export
+- Week 4: Visualization, optimization, deployment
+
+The cadastre matching for 640K parcels alone took ~10 hours of compute.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: How would you scale this to all of Europe?</div>
-                <div class="answer">
-                    The architecture scales horizontally. Each country's data would be processed independently in parallel. The main challenges would be: different data formats per country, varying data quality, and harmonizing geographic hierarchies. I'd use Airflow to orchestrate country-specific DAGs and a shared PostGIS instance with country partitioning.
-                </div>
+            <div class="category-header">Technical Understanding</div>
+            
+            <div class="qa-block" data-id="o5">
+                <div class="question">Q5: What is <span class="kw">DVF data</span>?</div>
+                <textarea>DVF = 'Demandes de Valeurs Foncières'. French government dataset of all property transactions, public since 2019.
+
+Each record: sale price, property type, surface area, location, date. Only actual sales (not inherited/gifted).
+
+Updated quarterly. Challenges: contains duplicates, errors, and many records lack coordinates.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="tip">
-                <strong>Tip:</strong> Always mention specific numbers (3.8M, 997K, R²=0.517) - it shows you know your project deeply.
+            <div class="qa-block" data-id="o6">
+                <div class="question">Q6: What is <span class="kw">PostGIS</span> and <span class="kw">why</span> use it?</div>
+                <textarea>PostGIS = PostgreSQL extension for geographic objects. Store geometries (points, lines, polygons) and run spatial queries.
+
+I use it for:
+- Storing transaction points and admin boundaries
+- Spatial joins (which commune does a transaction belong to)
+- GIST indexes for fast queries (10,000x speedup)
+- Export to GeoJSON
+
+Alternative (spatial ops in Python) is much slower at scale.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o7">
+                <div class="question">Q7: What is a <span class="kw">spatial index</span> and why does it <span class="kw">matter</span>?</div>
+                <textarea>Data structure organizing geographic objects for fast lookup. PostGIS uses GIST indexes (R-tree internally).
+
+Without index: check every building = O(n)
+With R-tree: traverse hierarchical tree = O(log n)
+
+With 500K buildings:
+- Without index: hours to match transactions
+- With index: minutes
+- Speedup: 10,000x</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o8">
+                <div class="question">Q8: <span class="kw">Difference</span> between <span class="kw">apartment</span> and <span class="kw">house</span>?</div>
+                <textarea>'Appartement' = apartment in multi-unit building
+'Maison' = standalone house
+
+Different pricing dynamics:
+- Paris: apartments dominate, expensive per m²
+- Rural: houses common, cheaper per m² (land included)
+
+I track both separately because price per m² can differ significantly depending on market.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o9">
+                <div class="question">Q9: Walk me through the <span class="kw">data flow</span></div>
+                <textarea>8 main steps:
+
+1. Download: DVF transactions + cadastre footprints
+2. Clean: Remove duplicates, filter outliers, calc price/m²
+3. Load: Insert into PostgreSQL with PostGIS geometries
+4. Train: Build 3-component ML model
+5. Aggregate: Group transactions per geographic level
+6. Match: Link parcels to building footprints
+7. Export: Convert to GeoJSON, split by department
+8. Visualize: Mapbox map with zoom-based layers</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o10">
+                <div class="question">Q10: Why <span class="kw">static JSON</span> instead of <span class="kw">dynamic API</span>?</div>
+                <textarea>Built both. Static for GitHub Pages - free, fast, no maintenance. Dynamic FastAPI for complex queries.
+
+Static works because:
+- Data updates quarterly
+- Pre-computed = fast loading
+- No server costs
+- Works offline once loaded
+
+Tradeoff: changes require re-running pipeline.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o11">
+                <div class="question">Q11: How would you convert to <span class="kw">Airflow</span>?</div>
+                <textarea>Pipeline already modular:
+
+1. Create DAG file defining workflow
+2. Wrap each script as PythonOperator task
+3. Define dependencies: download >> clean >> load >> train >> aggregate >> export
+4. Add scheduling (weekly or on new data)
+5. Set up monitoring and alerts
+
+Code stays same - just orchestration changes.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="category-header">ML Model Basics</div>
+            
+            <div class="qa-block" data-id="o12">
+                <div class="question">Q12: Why <span class="kw">LightGBM</span> instead of other models?</div>
+                <textarea>Evaluated options:
+- Linear regression: Too simple, can't capture non-linear patterns
+- Random Forest: Works but slower
+- Neural network: Overkill for 8 features
+- Kriging: Designed for spatial but extremely slow on 1M points
+
+LightGBM: fast training (<1 min), good accuracy (R²=0.517), handles non-linearity, provides feature importance.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o13">
+                <div class="question">Q13: What <span class="kw">features</span> did you use?</div>
+                <textarea>8 features:
+
+1. latitude, longitude - raw location
+2. lat², lon² - captures price curves
+3. lat×lon - diagonal patterns (e.g., Côte d'Azur)
+4. dept_encoded - department (macro effects)
+5. type_encoded - apartment vs house
+6. log_surface - log of surface area
+
+Polynomial features let model learn non-linear geographic patterns.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o14">
+                <div class="question">Q14: Explain <span class="kw">hierarchical smoothing</span></div>
+                <textarea>Problem: Village with 2 transactions = unreliable estimate.
+
+Solution: Blend local with parent based on sample size:
+weight = min(1.0, n / 50)
+smoothed = weight × local + (1 - weight) × parent
+
+Village with 2 tx: 4% local, 96% regional
+City with 500 tx: 100% local
+
+Similar to Bayesian shrinkage - pull uncertain estimates toward prior.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o15">
+                <div class="question">Q15: What does <span class="kw">R² = 0.517</span> mean?</div>
+                <textarea>R² = coefficient of determination = variance explained.
+
+0.517 = 52% of price variation explained by location, type, surface.
+
+Other 48%: property condition, floor level, renovation, view, etc.
+
+For real estate, 0.52 is reasonable. We capture main geographic patterns - Paris expensive, rural cheap, coastal premiums.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="category-header">Practical/Situational</div>
+            
+            <div class="qa-block" data-id="o16">
+                <div class="question">Q16: What would you do <span class="kw">differently</span>?</div>
+                <textarea>1. Add features: Building age, transit proximity, school ratings
+
+2. Vector tiles: Instead of raw GeoJSON for faster rendering
+
+3. Separate temporal pipeline: Lightweight job for price updates without full reprocessing
+
+4. Better uncertainty: Quantile regression or conformal prediction</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o17">
+                <div class="question">Q17: How would you handle <span class="kw">real-time updates</span>?</div>
+                <textarea>Current pipeline is batch. For real-time:
+
+1. Streaming ingestion: Kafka for new transactions
+2. Incremental updates: Only affected zones
+3. Online learning: Update weights incrementally
+4. Cache invalidation: Mark affected zones
+
+But for real estate, batch is fine - DVF updates quarterly.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o18">
+                <div class="question">Q18: Map is <span class="kw">slow</span> in an area - how to <span class="kw">debug</span>?</div>
+                <textarea>Investigation order:
+
+1. Check data size: Unusually many features? Check dept JSON size
+2. Browser profiling: DevTools network and rendering times
+3. Geometry complexity: Too many vertices? Consider simplification
+4. Layer management: Loading multiple zoom levels?
+5. Memory: Browser running out? Unload distant areas</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o19">
+                <div class="question">Q19: User says <span class="kw">prices look wrong</span> - what do you do?</div>
+                <textarea>Validate the concern:
+
+1. Check data: How many transactions? Raw prices?
+2. Check confidence: Low-confidence estimate? Expected behavior
+3. Check outliers: Unusual transaction skewing results?
+4. Compare to market: SeLoger, MeilleursAgents
+
+If real issue: could be data cleaning bug, geocoding error, or model limitation. Trace specific transactions.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="o20">
+                <div class="question">Q20: How do you ensure <span class="kw">code quality</span>?</div>
+                <textarea>Current:
+- Modular design: Each script = one responsibility
+- Config via env vars: No hardcoded paths
+- Error handling: Try/except with messages
+- Logging: Track progress and issues
+- Validation checks at each step
+- Documentation: README, docstrings
+
+For production: pytest, CI/CD, Great Expectations</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
         </div>
         
-        <!-- ARCHITECTURE Q&A -->
-        <div id="arch-qa" class="section searchable">
-            <h2>Architecture - Interview Q&A</h2>
+        <!-- ARCHITECTURE -->
+        <div id="arch" class="section searchable">
+            <h2>Architecture - 11 Questions</h2>
             
-            <div class="qa-block">
-                <div class="question">Q: Walk me through your architecture.</div>
-                <div class="answer">
-                    It's a 4-layer architecture:<br><br>
-                    <strong>Infrastructure:</strong> Docker Compose orchestrating PostgreSQL, ETL, and web app containers.<br>
-                    <strong>Data:</strong> PostGIS for spatial storage with GIST indexes, GeoJSON for export.<br>
-                    <strong>Processing:</strong> Python ETL pipeline, LightGBM model, GeoPandas for spatial operations.<br>
-                    <strong>Presentation:</strong> Mapbox GL JS for rendering, FastAPI for the backend API.
-                </div>
+            <div class="qa-block" data-id="a1">
+                <div class="question">Q1: Explain your <span class="kw">system architecture</span></div>
+                <textarea>4-layer architecture:
+
+1. Infrastructure: Docker Compose - PostgreSQL, ETL, web app with shared network
+
+2. Data: PostGIS for spatial storage with GIST indexes + GeoJSON for frontend
+
+3. Processing: Python ETL with GeoPandas, LightGBM for ML
+
+4. Presentation: Mapbox GL JS for maps, FastAPI for REST
+
+Each layer independently scalable and testable.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: Why PostgreSQL with PostGIS instead of MongoDB or a specialized geo database?</div>
-                <div class="answer">
-                    PostGIS gives me the best of both worlds—relational integrity for transaction data plus mature spatial functions. I need ST_Within for spatial joins, ST_Distance for nearest-neighbor queries, and GIST indexes that make these 10,000x faster. MongoDB's geospatial is more limited, and specialized databases like Tile38 are overkill for batch processing.
-                </div>
+            <div class="qa-block" data-id="a2">
+                <div class="question">Q2: Why <span class="kw">PostgreSQL</span> instead of <span class="kw">NoSQL</span>?</div>
+                <textarea>Three reasons:
+
+1. PostGIS integration: No NoSQL has comparable spatial support. ST_Within, ST_Distance, GIST indexes are essential.
+
+2. Relational integrity: Transactions relate to communes, departments, regions. SQL handles naturally.
+
+3. Aggregation queries: Complex GROUP BY with spatial joins = simple in SQL, painful in MongoDB.
+
+For 1M records and batch processing, single PostgreSQL is fine.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: How do your Docker containers communicate?</div>
-                <div class="answer">
-                    Through a Docker network called property_network. The ETL container connects to PostgreSQL using the service name 'postgres' as the hostname—Docker's internal DNS resolves it. The web app also connects to PostgreSQL the same way. Port 5432 is exposed to the host for development access.
-                </div>
+            <div class="qa-block" data-id="a3">
+                <div class="question">Q3: How does <span class="kw">PostGIS spatial indexing</span> work?</div>
+                <textarea>GIST (Generalized Search Tree) implements R-tree internally.
+
+R-tree divides space into nested bounding boxes. To find which commune contains a point:
+
+1. Start at root (all France)
+2. Check which child boxes contain point
+3. Descend only into matching branches
+4. At leaf: precise polygon test
+
+Reduces checks from 31,000 to ~3-4. Combined across 1M transactions = 10,000x speedup.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: What's the GIST index and why is it important?</div>
-                <div class="answer">
-                    GIST stands for Generalized Search Tree. It organizes spatial objects in an R-tree structure by bounding box. When I query "which commune contains this point?", without an index I'd check all 31,000 communes—31 billion checks for 1 million transactions. With GIST, I traverse the tree and only check ~3 candidates per point. That's 10,000x faster.
-                </div>
+            <div class="qa-block" data-id="a4">
+                <div class="question">Q4: Explain your <span class="kw">Docker Compose</span> setup</div>
+                <textarea>Three services on shared network:
+
+postgres: PostGIS 15, persistent volume, health check via pg_isready, port 5432
+
+etl: Custom Python image, depends on postgres healthy, mounts ./data and ./etl, runs pipeline
+
+webapp: FastAPI + Uvicorn, depends on postgres, port 8080, hot-reload enabled
+
+Communicate via Docker internal DNS using service names.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: How do you handle database credentials?</div>
-                <div class="answer">
-                    Environment variables in a .env file, loaded by Docker Compose. The .env is in .gitignore so credentials never hit the repo. The ETL container receives DATABASE_URL as an environment variable constructed from the individual POSTGRES_USER and POSTGRES_PASSWORD values.
-                </div>
+            <div class="qa-block" data-id="a5">
+                <div class="question">Q5: How would you modify for <span class="kw">Kubernetes</span>?</div>
+                <textarea>1. Split docker-compose into K8s manifests: Deployments, Services, PersistentVolumeClaim
+
+2. ConfigMaps and Secrets instead of .env
+
+3. Add Ingress controller for external access
+
+4. Consider managed PostgreSQL (Cloud SQL)
+
+5. Horizontal pod autoscaling for web app
+
+6. ETL becomes CronJob instead of long-running container</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="warning">
-                <strong>Watch out:</strong> If asked about "microservices vs monolith" - this is a modular monolith in containers, not true microservices. Be honest about it.
-            </div>
-        </div>
-        
-        <!-- ETL Q&A -->
-        <div id="etl-qa" class="section searchable">
-            <h2>ETL Pipeline - Interview Q&A</h2>
-            
-            <div class="qa-block">
-                <div class="question">Q: Walk me through your ETL pipeline.</div>
-                <div class="answer">
-                    <strong>Extract:</strong> Download DVF CSVs from data.gouv.fr and cadastre GeoJSON from cadastre.data.gouv.fr.<br>
-                    <strong>Transform:</strong> Apply 6 filtering rules (sales only, residential, valid price/surface/coordinates, outlier removal), calculate price per m², format postcodes.<br>
-                    <strong>Load:</strong> Batch insert to PostgreSQL with 50,000 row chunks, create spatial geometries, build GIST indexes.
-                </div>
+            <div class="qa-block" data-id="a6">
+                <div class="question">Q6: Walk through a <span class="kw">single transaction flow</span></div>
+                <textarea>€350K apartment in Paris:
+
+1. Extract: Row in DVF CSV with lat/lon
+2. Clean: Passes filters, price_per_m2 = €350K/75m² = €4,667
+3. Load: Insert with ST_MakePoint geometry
+4. Train: Becomes 1 of 1M training samples
+5. Aggregate: Contributes to France → IDF → Paris → 75011 medians
+6. Parcel: Creates/updates building polygon
+7. Export: Appears in parcel/75.json
+8. Visualize: Rendered when user zooms there</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: What are your 6 filtering rules?</div>
-                <div class="answer">
-                    1. Sales only (nature_mutation = 'Vente') - removes donations, exchanges<br>
-                    2. Residential (type_local IN ('Maison', 'Appartement')) - removes commercial, industrial<br>
-                    3. Has valid price (valeur_fonciere > 0)<br>
-                    4. Has valid surface (surface_reelle_bati > 0)<br>
-                    5. Has coordinates (latitude/longitude not null)<br>
-                    6. Remove outliers (€100-50,000/m², 9-500m² surface)
-                </div>
+            <div class="qa-block" data-id="a7">
+                <div class="question">Q7: How do you handle <span class="kw">data validation</span>?</div>
+                <textarea>Multiple layers:
+
+Input: File existence, CSV structure, skip null critical fields
+
+Business rules: Price €100-50K/m², surface 9-500m², sales only, residential only
+
+Spatial: Coordinates in France bbox, valid geometries (ST_IsValid)
+
+Output: Transaction counts sum correctly, no negative values, all zones have geometry</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: How did you choose those outlier thresholds?</div>
-                <div class="answer">
-                    Based on domain knowledge and data exploration. €100/m² is below construction cost anywhere in France—indicates data error. €50,000/m² exceeds even the most expensive Paris addresses—also likely errors. For surface, 9m² is the legal minimum for a habitable room in France, and 500m² covers 99.9% of legitimate residential properties.
-                </div>
+            <div class="qa-block" data-id="a8">
+                <div class="question">Q8: What if <span class="kw">cadastre data missing</span> for a department?</div>
+                <textarea>Graceful degradation:
+
+1. Log warning for department X
+2. Create estimated footprints instead
+3. Use square buffer around transaction point
+4. Size based on property's surface area
+5. Mark as "estimated" in confidence metadata
+
+User still sees building-level data with visual indicator. Affects ~85% of parcels anyway.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: Why batch inserts of 50,000 rows?</div>
-                <div class="answer">
-                    Balance between memory usage and database round-trips. Smaller batches mean more network overhead. Larger batches risk memory issues—each row with geometry is about 1KB, so 50,000 rows is ~50MB in memory. I tested 10K, 50K, and 100K; 50K gave the best throughput without memory pressure.
-                </div>
+            <div class="qa-block" data-id="a9">
+                <div class="question">Q9: How do you handle <span class="kw">22GB cadastre</span>?</div>
+                <textarea>Department by department:
+
+1. Never load full 22GB
+2. For each of 96 depts:
+   - Load that file (100-500MB)
+   - Build STRtree spatial index
+   - Match all transactions
+   - Export parcel GeoJSON
+   - del gdf, gc.collect()
+3. Next department
+
+Peak memory <2GB. Runs on 16GB laptop. ~10 hours total (parallelizable).</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: How do you handle the 22GB cadastre data?</div>
-                <div class="answer">
-                    Department by department. I never load the full 22GB. For each of 96 departments, I load its cadastre file (100-500MB), build a spatial index, match transactions to buildings, export the parcel GeoJSON, then free the memory before moving to the next department. Peak memory stays under 2GB.
-                </div>
+            <div class="qa-block" data-id="a10">
+                <div class="question">Q10: Why is <span class="kw">spatial index</span> so important?</div>
+                <textarea>Without index: O(n×m) complexity
+1M transactions × 31K communes = 31 billion polygon tests
+At 0.001 sec each = 360 DAYS
+
+With GIST R-tree: O(n×log m)
+1M × ~3 candidates = 3 million tests
+= ~50 minutes
+
+Speedup: 31B / 3M = 10,333x
+
+Essential for any production spatial system.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: What's your cadastre matching rate?</div>
-                <div class="answer">
-                    About 15% overall. Higher in dense urban areas (25% in Paris) because geocoding is better and buildings are more consistently mapped. Lower in rural areas (8%) where cadastre data is sparser and transactions often geocode to town centroids rather than actual buildings. Unmatched transactions get estimated square footprints based on their surface area.
-                </div>
-            </div>
-        </div>
-        
-        <!-- ML Q&A -->
-        <div id="ml-qa" class="section searchable">
-            <h2>ML Model - Interview Q&A</h2>
-            
-            <div class="qa-block">
-                <div class="question">Q: Explain your ML model architecture.</div>
-                <div class="answer">
-                    Three components:<br><br>
-                    <strong>1. Spatial (LightGBM):</strong> Predicts base price from location, property type, surface. R²=0.517.<br>
-                    <strong>2. Temporal (Linear Regression):</strong> Captures -5.38% annual trend, adjusts predictions to target date.<br>
-                    <strong>3. Hierarchical Smoothing:</strong> Combines local estimate with parent level based on sample size. Weight = n/50.
-                </div>
-            </div>
-            
-            <div class="qa-block">
-                <div class="question">Q: Why LightGBM over XGBoost or Random Forest?</div>
-                <div class="answer">
-                    Three reasons: First, LightGBM handles categorical features natively—I don't need to one-hot encode department codes or property types. Second, it's faster for my data size (1M rows) due to histogram-based splitting. Third, leaf-wise growth often captures spatial patterns better than level-wise. In my tests, LightGBM was 3x faster than XGBoost with similar accuracy.
-                </div>
-            </div>
-            
-            <div class="qa-block">
-                <div class="question">Q: Walk me through the smoothing formula.</div>
-                <div class="answer">
-                    <pre>weight = min(1.0, n / 50)
-smoothed = weight × local + (1 - weight) × parent</pre>
-                    Example: A commune with 10 transactions at €2,000/m², parent department at €1,500/m²:<br>
-                    weight = 10/50 = 0.2<br>
-                    smoothed = 0.2 × €2,000 + 0.8 × €1,500 = €1,600/m²<br><br>
-                    The local estimate is pulled toward the more reliable parent estimate.
-                </div>
-            </div>
-            
-            <div class="qa-block">
-                <div class="question">Q: Why n/50 specifically?</div>
-                <div class="answer">
-                    50 transactions is roughly where estimates stabilize statistically. With 50+ sales, the local median has a narrow enough confidence interval to trust. Below 50, variance is high. I tested thresholds from 20 to 100; 50 gave the best balance between local specificity and stability in cross-validation.
-                </div>
-            </div>
-            
-            <div class="qa-block">
-                <div class="question">Q: What's R² of 0.517 mean in practice?</div>
-                <div class="answer">
-                    The model explains 52% of price variance from location and property characteristics alone. The remaining 48% is property-specific factors I don't have: renovation state, floor level, view, amenities. For aggregated zone estimates (not individual predictions), 0.517 is quite good—the aggregation further reduces noise.
-                </div>
-            </div>
-            
-            <div class="qa-block">
-                <div class="question">Q: How do you calculate confidence scores?</div>
-                <div class="answer">
-                    Three components, 0-100 scale:<br>
-                    <strong>Volume (0-40):</strong> More transactions = higher confidence. 20+ gets max points.<br>
-                    <strong>Precision (0-30):</strong> Narrower confidence interval relative to price = higher score.<br>
-                    <strong>Recency (0-30):</strong> More recent transactions = higher confidence. Decays over 30 months.
-                </div>
-            </div>
-            
-            <div class="memorize">
-                <h4>🧠 Memorize This Example</h4>
-                <p>Commune with 10 transactions at €2,000/m², department average €1,500/m²:</p>
-                <p><strong>weight = 10/50 = 0.2</strong></p>
-                <p><strong>smoothed = 0.2 × €2,000 + 0.8 × €1,500 = €1,600/m²</strong></p>
-                <p>80% from parent because local data is sparse!</p>
-            </div>
-        </div>
-        
-        <!-- AGGREGATION Q&A -->
-        <div id="agg-qa" class="section searchable">
-            <h2>Aggregation - Interview Q&A</h2>
-            
-            <div class="qa-block">
-                <div class="question">Q: Explain your aggregation strategy.</div>
-                <div class="answer">
-                    I aggregate 997K transactions into 6 geographic levels: country (1), region (13), department (96), commune (31K), postcode (5.7K), and parcel (643K). Each level uses spatial joins to find which transactions belong to which zone, calculates statistics, and applies hierarchical smoothing from the parent level. Total output is 674,602 zones.
-                </div>
-            </div>
-            
-            <div class="qa-block">
-                <div class="question">Q: How do spatial joins work?</div>
-                <div class="answer">
-                    Spatial joins answer "which points are inside which polygons" using PostGIS ST_Within. The GIST spatial index is critical—it organizes zones in an R-tree by bounding box. Without the index: 31 billion comparisons, 250 days. With index: 3 million comparisons, 5 minutes. That's 10,000x faster.
-                </div>
-            </div>
-            
-            <div class="qa-block">
-                <div class="question">Q: Why split parcels into 93 files?</div>
-                <div class="answer">
-                    642K parcel polygons would be 208 MB in one file—too large to load at once in a browser. By splitting into department files averaging 2-3 MB each (max 9 MB for Paris), the frontend can lazy load only what's visible in the viewport. User views Paris? Load just 75.json. Pan to Lyon? Unload Paris, load 69.json. Memory stays bounded.
-                </div>
-            </div>
-            
-            <div class="qa-block">
-                <div class="question">Q: What's the largest output file?</div>
-                <div class="answer">
-                    The Paris parcel file (75.json) at 9.1 MB with about 45,000 building polygons. Paris has the highest transaction density and complex building geometries. The commune file is also large at 22 MB for 31,059 municipal boundaries. Total output is 250 MB across all levels.
-                </div>
-            </div>
-            
-            <div class="qa-block">
-                <div class="question">Q: How do you ensure consistency across levels?</div>
-                <div class="answer">
-                    Transaction counts must sum up the hierarchy. I verify that country = sum of regions = sum of departments. Prices should be within reasonable ranges—no child zone significantly higher/lower than parent without justification. I run validation queries after each ETL run.
-                </div>
+            <div class="qa-block" data-id="a11">
+                <div class="question">Q11: How would you <span class="kw">scale</span> to handle <span class="kw">10x more data</span>?</div>
+                <textarea>Several approaches:
+
+1. Partition PostgreSQL by department or date
+2. Parallelize ETL across departments (already possible)
+3. Move to distributed processing (Spark + Sedona)
+4. Use PostGIS on RDS with read replicas
+5. Pre-aggregate at ingest time
+6. Consider ClickHouse for analytics queries
+
+For 10M records, current architecture with parallelization would work. For 100M+, need distributed system.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
         </div>
         
-        <!-- FRONTEND Q&A -->
-        <div id="frontend-qa" class="section searchable">
-            <h2>Frontend - Interview Q&A</h2>
+        <!-- ETL -->
+        <div id="etl" class="section searchable">
+            <h2>ETL Pipeline - 12 Questions</h2>
             
-            <div class="qa-block">
-                <div class="question">Q: Why Mapbox GL JS?</div>
-                <div class="answer">
-                    Four reasons: WebGL-based for hardware-accelerated rendering of 600K+ polygons. Vector tiles for smooth zooming without pixelation. Data-driven styling expressions for choropleth colors directly from price data. Native GeoJSON support matching my export format. I considered Leaflet but it struggles with many polygons.
-                </div>
+            <div class="qa-block" data-id="e1">
+                <div class="question">Q1: What is <span class="kw">ETL</span> and how did you <span class="kw">implement</span> it?</div>
+                <textarea>ETL = Extract, Transform, Load.
+
+Extract: Download DVF CSVs from data.gouv.fr, cadastre GeoJSON from cadastre.data.gouv.fr
+
+Transform: Clean data - remove duplicates, filter to residential, remove outliers, calc price/m², create geometries
+
+Load: Batch insert to PostgreSQL (50K row chunks), create GIST indexes
+
+Orchestrated by Python script, triggerable manually or scheduled.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: How does zoom-based layer switching work?</div>
-                <div class="answer">
-                    Each layer has minzoom and maxzoom properties. Country shows at zoom 0-4, regions at 5-6, departments at 7-8, communes at 9-11, postcodes at 12-13, parcels at 14+. Mapbox automatically shows/hides layers based on current zoom. Only one level is visible at a time, keeping the map readable and performant.
-                </div>
+            <div class="qa-block" data-id="e2">
+                <div class="question">Q2: Why filter <span class="kw">€100-50,000</span> per m²?</div>
+                <textarea>Domain knowledge outlier thresholds:
+
+<€100/m²: Below construction cost anywhere. Data entry errors (missing zeros).
+
+>€50,000/m²: Even most expensive Paris rarely exceeds €25K. Almost certainly data error.
+
+Validated by plotting distribution - these filters remove ~3% of data without losing legitimate transactions.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: Explain your lazy loading implementation.</div>
-                <div class="answer">
-                    When zoom reaches 14+, I determine which departments are visible by checking bounding box intersections with the viewport. I fetch only those department parcel files and add them as map sources. When the user pans away, I unload departments no longer visible. I cap at 3 loaded departments to bound memory. Viewing Paris loads 9 MB instead of 208 MB.
-                </div>
+            <div class="qa-block" data-id="e3">
+                <div class="question">Q3: How do you handle <span class="kw">missing coordinates</span>?</div>
+                <textarea>~8% of DVF lacks coordinates.
+
+Approach 1 - Exclude: For price modeling, I exclude them. 92% = 900K+ transactions is plenty.
+
+Approach 2 - Geocode (optional): Use address with Nominatim or Google Geocoding API. Adds cost/complexity.
+
+For this project, exclusion acceptable. For production, add geocoding with caching.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: How did you design the color scale?</div>
-                <div class="answer">
-                    Diverging blue-white-red scheme. Blue for cheap (cool markets), red for expensive (hot markets), white at the €3,000 midpoint near the national median. Breakpoints based on actual distribution: €1,000 for rural, €10,000+ for Paris. I also adjust opacity based on confidence—high confidence zones are more opaque.
-                </div>
+            <div class="qa-block" data-id="e4">
+                <div class="question">Q4: How do you ensure <span class="kw">data quality</span>?</div>
+                <textarea>Multiple validation layers:
+
+1. Schema: Expected columns exist
+2. Type checking: Prices numeric, dates valid
+3. Range checks: Price/m², surface, coordinates in France
+4. Duplicate removal: Same parcel + price + date
+5. Referential: Commune codes exist in boundaries
+6. Output: Transaction counts sum across hierarchy
+
+Log statistics at each step for debugging.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: Why no React or Vue?</div>
-                <div class="answer">
-                    For this project, vanilla JavaScript is sufficient. The codebase is small (~500 lines), Mapbox handles most interactivity, and no framework means smaller bundle and simpler deployment to GitHub Pages. If I were adding user accounts, saved searches, or complex state management, I'd consider React.
-                </div>
+            <div class="qa-block" data-id="e5">
+                <div class="question">Q5: What if you <span class="kw">didn't remove duplicates</span>?</div>
+                <textarea>DVF has duplicates for multi-lot sales. Single transaction selling 3 apartments = 3 rows with same total price.
+
+Without deduplication:
+- Median skews toward large buildings
+- Transaction counts inflated
+- Confidence scores misleadingly high
+- Building aggregates have repeated transactions
+
+Deduplicate by (id_parcelle, date_mutation, valeur_fonciere).</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
             
-            <div class="qa-block">
-                <div class="question">Q: Why GitHub Pages?</div>
-                <div class="answer">
-                    Free hosting, automatic HTTPS, global CDN, and push-to-deploy workflow. The 1 GB limit is plenty for 250 MB of GeoJSON. No server needed since all data is pre-computed. For a personal project demonstrating frontend skills, it's perfect.
-                </div>
+            <div class="qa-block" data-id="e6">
+                <div class="question">Q6: How convert to <span class="kw">Airflow</span>?</div>
+                <textarea>Pipeline already modular:
+
+1. Create DAG file with schedule (weekly)
+2. Each function → PythonOperator task
+3. Define dependencies with >> operator
+4. Add sensors for new DVF releases
+5. Add alerting for failures
+6. Use XCom to pass file paths between tasks
+
+Processing code stays same - just orchestration changes.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="e7">
+                <div class="question">Q7: <span class="kw">How long</span> does ETL take?</div>
+                <textarea>On 12-core, 24GB RAM:
+
+Fresh run:
+- Download DVF: 3 min
+- Download cadastre: 30+ min (22GB)
+- Clean & load: 10 min
+- Train: 1 min
+- Aggregate: 20 min
+- Export: 5 min
+Total: ~70 minutes
+
+Cached: ~35 minutes
+
+Bottleneck: Parcel cadastre matching (parallelizable to ~2 hours).</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="e8">
+                <div class="question">Q8: What are the <span class="kw">6 filtering rules</span>?</div>
+                <textarea>1. Sales only (nature_mutation = 'Vente') → -15%
+2. Residential only (Maison/Appartement) → -25%
+3. Has valid price (>0) → -5%
+4. Has valid surface (>0) → -10%
+5. Has coordinates (lat/lon not null) → -8%
+6. Remove outliers (€100-50K/m², 9-500m²) → -3%
+
+Result: 3.8M → 997K (26% retained)</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="e9">
+                <div class="question">Q9: Why <span class="kw">batch inserts</span> of 50,000 rows?</div>
+                <textarea>Balance memory vs performance:
+
+Too small (1K): Too many DB round-trips
+Too large (500K): Memory pressure, timeout risk
+
+At 50K:
+- ~50MB in memory (manageable)
+- ~20 round-trips for 1M rows
+- Each insert: 2-3 seconds
+- Show progress (chunk 1/20...)
+
+Tested 10K, 50K, 100K - 50K best throughput.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="e10">
+                <div class="question">Q10: How handle <span class="kw">ETL errors</span>?</div>
+                <textarea>Try/except with logging at each stage:
+
+1. Download: Retry 3x with backoff, then fail clearly
+2. Parse: Log problematic row, skip, continue
+3. Validation: Log and skip failing rows
+4. Database: Transaction rollback, log, retry option
+5. Memory: Reduce chunk size dynamically
+
+If >10% rows skipped, job fails for investigation.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="e11">
+                <div class="question">Q11: How do you handle <span class="kw">incremental updates</span>?</div>
+                <textarea>Currently full rebuild each quarter. For incremental:
+
+1. Track last processed date
+2. Download only new DVF files
+3. Merge new transactions with existing
+4. Re-aggregate affected zones only
+5. Update only changed GeoJSON files
+
+Challenge: Need to handle corrections to old data. DVF sometimes updates historical records.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="e12">
+                <div class="question">Q12: How do you <span class="kw">monitor</span> ETL jobs?</div>
+                <textarea>Current approach:
+- Logging with timestamps and row counts
+- Print progress every 500/25000 iterations
+- Final summary with totals
+
+Production approach:
+- Airflow UI for DAG monitoring
+- Prometheus metrics (rows processed, duration)
+- Slack/email alerts on failure
+- Data quality dashboards (Great Expectations)
+- Log aggregation (ELK stack)</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+        </div>
+        
+        <!-- ML MODEL -->
+        <div id="ml" class="section searchable">
+            <h2>ML Model - 14 Questions</h2>
+            
+            <div class="qa-block" data-id="m1">
+                <div class="question">Q1: Explain your <span class="kw">ML model architecture</span></div>
+                <textarea>Three components:
+
+1. Spatial (LightGBM): Predicts base price from location, type, surface. Uses polynomial features. R²=0.517.
+
+2. Temporal (Linear Regression): Captures -5.38% annual trend. Adjusts historical prices to prediction date.
+
+3. Hierarchical Smoothing: Blends local with parent based on sample size. Weight = min(1.0, n/50).
+
+Final prediction combines all three multiplicatively.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m2">
+                <div class="question">Q2: Why <span class="kw">LightGBM</span> specifically?</div>
+                <textarea>Advantages for this use case:
+
+1. Native categorical handling: No one-hot encoding needed
+2. Speed: Histogram-based splitting fast on 1M rows (<1 min)
+3. Leaf-wise growth: Often captures spatial patterns better
+4. Feature importance: Easy interpretability
+5. Missing value handling: Flexibility for future features
+
+3x faster than XGBoost with similar R².</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m3">
+                <div class="question">Q3: Explain <span class="kw">hierarchical smoothing</span> in detail</div>
+                <textarea>Problem: Small zones have unreliable estimates.
+
+Formula:
+weight = min(1.0, n / 50)
+smoothed = weight × local + (1 - weight) × parent
+
+Example: Village 5 tx at €2,500, dept avg €1,800:
+weight = 5/50 = 0.1
+smoothed = 0.1×€2,500 + 0.9×€1,800 = €1,870
+
+Pulled toward reliable dept average. With 50+ tx, trust local fully. Similar to Bayesian shrinkage.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m4">
+                <div class="question">Q4: What does <span class="kw">R²=0.517</span> mean practically?</div>
+                <textarea>R² = variance explained.
+
+0.517 = 52% of price variation from location, type, surface.
+
+Other 48%: condition, floor, renovation, view, building quality, timing.
+
+For real estate, 0.52 is reasonable. We capture main geographic patterns. Individual predictions need more features, but zone-level aggregates work well.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m5">
+                <div class="question">Q5: Why <span class="kw">polynomial location features</span>?</div>
+                <textarea>Price doesn't vary linearly with lat/lon. Paris expensive, but so is Nice (south) and Lyon (center).
+
+Polynomial features allow curves:
+- lat² → north-south price curves
+- lon² → east-west price curves
+- lat×lon → diagonal patterns (Côte d'Azur = southeast)
+
+Tree models can learn these, but polynomials make it easier and more interpretable.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m6">
+                <div class="question">Q6: What would <span class="kw">improve</span> the model?</div>
+                <textarea>Data enrichment:
+- Building age from cadastre
+- Distance to metro/train
+- School ratings, crime stats
+
+Model improvements:
+- Spatial cross-validation
+- Quantile regression for uncertainty
+- Ensemble with different algorithms
+
+Infrastructure:
+- Online learning for incremental updates
+- Feature store for reusability</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m7">
+                <div class="question">Q7: Why <span class="kw">n/50</span> for smoothing threshold?</div>
+                <textarea>50 transactions = where estimates stabilize statistically.
+
+Tested 20 to 100:
+- n/20: Too aggressive, 10 tx gets 50% weight
+- n/50: Good balance, 25 tx = 50% weight
+- n/100: Too conservative
+
+Cross-validation showed n/50 minimized prediction error.
+
+Intuition: Bayesian prior with strength of 50 observations.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m8">
+                <div class="question">Q8: How calculate <span class="kw">confidence scores</span>?</div>
+                <textarea>Three components (0-100 scale):
+
+Volume (0-40): More tx = higher. min(40, n×2)
+
+Precision (0-30): Narrower CI = higher. max(0, 30 - relative_CI×50)
+
+Recency (0-30): Recent tx = higher. Decays over 30 months.
+
+Total → High (70+) / Medium (50-69) / Low (30-49) / Estimated (<30)</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m9">
+                <div class="question">Q9: How handle the <span class="kw">-5.38% annual trend</span>?</div>
+                <textarea>Temporal adjustment to target date:
+
+1. Fit: log(price) ~ date → slope = -5.38%/year
+2. For each historical transaction:
+   days_diff = (target - tx_date).days
+   adjustment = exp(slope × days_diff / 365)
+   adjusted = raw × adjustment
+
+Example: 2019 at €2,000 → 2024:
+5 years × -5.38% = -26.9%
+adjusted = €2,000 × 0.731 = €1,462/m²</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m10">
+                <div class="question">Q10: Difference between <span class="kw">spatial</span> and <span class="kw">temporal</span> components?</div>
+                <textarea>Spatial (LightGBM):
+- WHERE matters: Paris expensive, rural cheap
+- Uses location, type, surface
+- Static patterns - rarely retrain
+
+Temporal (Linear Regression):
+- WHEN matters: prices change over time
+- Uses transaction date
+- Dynamic - update frequently
+
+Multiplicative: spatial × temporal = final
+
+Separation useful for debugging and maintenance.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m11">
+                <div class="question">Q11: How did you <span class="kw">validate</span> the model?</div>
+                <textarea>Multiple approaches:
+
+1. 5-fold CV: Train on 4, test on 1. Avg R²=0.517
+2. Holdout 20%: Similar R², no overfitting
+3. Geographic: Paris high, Creuse low ✓
+4. Business: Compare to MeilleursAgents, SeLoger
+5. Temporal: Train 2019-2022, test 2023
+
+All checks passed - model generalizes well.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m12">
+                <div class="question">Q12: What are the model's <span class="kw">limitations</span>?</div>
+                <textarea>1. Missing features: No age, renovation, floor, view (48% unexplained)
+2. Temporal lag: Historical data, may miss recent shifts
+3. Sparse data: Rural estimates smoothed to regional avg
+4. Aggregation bias: Building estimates smoothed to postcode
+5. Border effects: Departments as categories lose continuity
+6. Homogeneity: Same patterns assumed across property sizes
+
+For production: more features, separate models by type.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m13">
+                <div class="question">Q13: Why not use <span class="kw">deep learning</span>?</div>
+                <textarea>Overkill for this problem:
+
+1. Only 8 features - neural nets need many features to shine
+2. Tabular data - gradient boosting typically beats NNs
+3. Interpretability - need to explain predictions
+4. Training time - LightGBM trains in <1 min
+5. Overfitting risk - would need heavy regularization
+
+For image-based property valuation (photos), deep learning would help. For tabular transaction data, tree-based models win.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="m14">
+                <div class="question">Q14: How would you add <span class="kw">uncertainty quantification</span>?</div>
+                <textarea>Several approaches:
+
+1. Quantile regression: Predict 10th, 50th, 90th percentiles
+
+2. Conformal prediction: Distribution-free coverage guarantees
+
+3. Ensemble variance: Multiple models, measure disagreement
+
+4. Bayesian approach: Full posterior distribution
+
+Currently using confidence intervals from bootstrap. For production, would add quantile regression - gives user a range not just point estimate.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+        </div>
+        
+        <!-- AGGREGATION -->
+        <div id="agg" class="section searchable">
+            <h2>Aggregation - 10 Questions</h2>
+            
+            <div class="qa-block" data-id="g1">
+                <div class="question">Q1: Explain your <span class="kw">aggregation strategy</span></div>
+                <textarea>997K transactions → 6 hierarchical levels:
+
+Country (1): €2,343 median
+Region (13): IDF highest €4,196
+Department (96): Paris €8,531
+Commune (31,059): Municipal
+Postcode (5,737): Neighborhood
+Parcel (642,909): Building footprints
+
+Each level: spatial join → stats → smoothing → confidence → GeoJSON export
+
+Total: 674,602 zones</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="g2">
+                <div class="question">Q2: How do <span class="kw">spatial joins</span> work?</div>
+                <textarea>= "which points inside which polygons"
+
+SQL: SELECT zones.*, tx.* FROM zones JOIN tx ON ST_Within(tx.geom, zones.geom)
+
+GIST index critical:
+- Without: 31K × 1M = 31B checks = 360 days
+- With: R-tree reduces to ~3 candidates = 3M checks = 50 min
+- Speedup: 10,000x
+
+Index organizes zones by bounding box in tree.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="g3">
+                <div class="question">Q3: Why <span class="kw">split parcels by department</span>?</div>
+                <textarea>642K polygons = 208 MB single file. Browser problems:
+- 10+ sec download
+- Browser freezes parsing
+- Memory crash on mobile
+
+Solution: 93 dept files (1-9 MB each)
+
+Benefits:
+- Load only visible area
+- Unload when pan away
+- Max 3 depts in memory
+
+Paris: 9 MB instead of 208 MB.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="g4">
+                <div class="question">Q4: How does <span class="kw">cadastre matching</span> work?</div>
+                <textarea>Goal: Find actual building footprint for each transaction.
+
+1. Load dept cadastre (~100-500MB)
+2. Build STRtree spatial index
+3. For each tx point:
+   a. Query tree for bbox candidates
+   b. Check if building contains point
+   c. Else find nearest within 50m
+   d. Else create estimated square
+4. Free memory, next dept
+
+Match rates: Paris 25%, Urban 18%, Rural 8%, Overall 14.8%</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="g5">
+                <div class="question">Q5: What's the <span class="kw">biggest file</span> and why?</div>
+                <textarea>Parcel: Paris (75.json) = 9.1 MB
+- ~45K building polygons
+- Highest tx density
+- Complex old-city geometries
+
+Commune: commune.json = 22 MB
+- 31,059 boundaries
+- Loaded at zoom 9-11
+
+Smallest: Lozère 0.8 MB
+Total output: 250 MB</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="g6">
+                <div class="question">Q6: How handle <span class="kw">22GB cadastre</span>?</div>
+                <textarea>Dept-by-dept processing:
+
+1. Never load full 22GB
+2. For each of 96 depts:
+   - Load that file (100-500MB)
+   - Build spatial index
+   - Match all transactions
+   - Export parcel GeoJSON
+   - del gdf, gc.collect()
+3. Next dept
+
+Peak memory <2GB. ~10 hours (parallelizable to ~2 hours).</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="g7">
+                <div class="question">Q7: How ensure <span class="kw">consistency across levels</span>?</div>
+                <textarea>Validation checks:
+
+Transaction counts: Country = Σ regions = Σ depts
+
+Price sanity: No child > 5x parent or < 0.2x parent
+
+Geographic: Children inside parent, no orphans, complete coverage
+
+Codes: Commune codes exist, postcodes valid format
+
+Run after each aggregation, fail if violations exceed threshold.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="g8">
+                <div class="question">Q8: What's in the <span class="kw">GeoJSON output</span>?</div>
+                <textarea>{
+  "type": "FeatureCollection",
+  "features": [{
+    "properties": {
+      "code": "75056",
+      "name": "Paris",
+      "level": "commune",
+      "median_price": 8531.45,
+      "lower_bound": 7200,
+      "upper_bound": 10500,
+      "transaction_count": 45678,
+      "confidence_score": 98,
+      "estimate_quality": "High"
+    },
+    "geometry": {"type": "MultiPolygon", ...}
+  }]
+}</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="g9">
+                <div class="question">Q9: Why use <span class="kw">median</span> instead of <span class="kw">mean</span>?</div>
+                <textarea>Median is robust to outliers.
+
+Example zone with 5 transactions:
+€1,500, €1,600, €1,700, €1,800, €15,000 (unusual property)
+
+Mean: €4,320 (skewed by outlier)
+Median: €1,700 (representative)
+
+Real estate has fat tails - luxury properties, distressed sales, data errors. Median gives users a more realistic "typical" price.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="g10">
+                <div class="question">Q10: How do you handle <span class="kw">zones with no transactions</span>?</div>
+                <textarea>Inherit from parent level with maximum smoothing:
+
+weight = 0 (no local data)
+estimate = 100% parent average
+
+Marked as "Estimated" quality, low confidence score.
+
+For parcels: If no transactions in parcel but transactions in same postcode, use postcode average.
+
+This ensures complete coverage - every zone has an estimate, with appropriate uncertainty indicators.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+        </div>
+        
+        <!-- FRONTEND -->
+        <div id="front" class="section searchable">
+            <h2>Frontend - 10 Questions</h2>
+            
+            <div class="qa-block" data-id="f1">
+                <div class="question">Q1: Why <span class="kw">Mapbox GL JS</span>?</div>
+                <textarea>Four advantages:
+
+1. WebGL: Hardware-accelerated, handles 600K+ polygons
+2. Vector tiles: Smooth zoom, no pixelation
+3. Data-driven styling: Derive colors from price values directly
+4. Native GeoJSON: My export format loads directly
+
+Alternatives:
+- Leaflet: Struggles with many polygons
+- D3: Would need to build map from scratch
+
+Free tier (50K loads/month) sufficient.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="f2">
+                <div class="question">Q2: How does <span class="kw">zoom-based layer switching</span> work?</div>
+                <textarea>Each layer has minzoom/maxzoom:
+
+Zoom 0-4: Country (1)
+Zoom 5-6: Region (13)
+Zoom 7-8: Department (96)
+Zoom 9-11: Commune (31K)
+Zoom 12-13: Postcode (5.7K)
+Zoom 14+: Parcel (lazy loaded)
+
+Mapbox auto shows/hides based on zoom. Only one level visible = clean and performant.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="f3">
+                <div class="question">Q3: Explain <span class="kw">lazy loading</span> strategy</div>
+                <textarea>For parcels (642K polygons, 208 MB):
+
+1. Split into 93 dept files (1-9 MB)
+2. On zoom 14+:
+   - Get viewport bounds
+   - Check which dept bboxes intersect
+   - Fetch only those files
+3. On pan: Load new, unload invisible
+4. Max 3 depts loaded (LRU eviction)
+
+Result: Paris = 9 MB instead of 208 MB (23x reduction).</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="f4">
+                <div class="question">Q4: How did you design the <span class="kw">color scale</span>?</div>
+                <textarea>Diverging blue-white-red:
+
+<€1K: #2166ac (dark blue) - rural
+€2-3K: #d1e5f0 - below avg
+€3-5K: #f7f7f7 (white) - average
+€5-8K: #fddbc7 - above avg
+>€10K: #b2182b (dark red) - Paris
+
+€3K near national median = neutral.
+Also adjust opacity by confidence score.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="f5">
+                <div class="question">Q5: Why <span class="kw">no React or Vue</span>?</div>
+                <textarea>Vanilla JS sufficient for this:
+
+1. Small codebase: ~500 lines
+2. Single page: No routing, no complex state
+3. Mapbox handles interactivity
+4. Smaller bundle: No framework overhead
+5. Simple deployment: Static files
+
+If adding user accounts, saved searches → consider React.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="f6">
+                <div class="question">Q6: How handle <span class="kw">mobile responsiveness</span>?</div>
+                <textarea>Layout: Legend shrinks, header compact, popup constrained
+
+Touch: Mapbox handles pinch-zoom/pan natively
+
+Performance: Max 2 depts on mobile (vs 3), detect low memory
+
+CSS media queries for breakpoints
+
+Test on iOS Safari and Chrome Android.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="f7">
+                <div class="question">Q7: Why <span class="kw">GitHub Pages</span>?</div>
+                <textarea>Perfect fit:
+- Free hosting
+- Automatic HTTPS
+- Global CDN
+- Push-to-deploy
+
+Limits (acceptable):
+- 1 GB storage (I use 250 MB)
+- Static only (I pre-compute)
+- 100 GB bandwidth/month
+
+For auth/dynamic → Vercel, Netlify.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="f8">
+                <div class="question">Q8: How do <span class="kw">popups</span> work?</div>
+                <textarea>1. Attach click: map.on('click', 'communes-fill', handleClick)
+
+2. Get properties: e.features[0].properties
+
+3. Format HTML with name, price, range, count, confidence
+
+4. Show:
+   new mapboxgl.Popup()
+     .setLngLat(e.lngLat)
+     .setHTML(html)
+     .addTo(map)
+
+Also hover effects (cursor, opacity) for UX.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="f9">
+                <div class="question">Q9: How would you add <span class="kw">vector tiles</span>?</div>
+                <textarea>Currently using GeoJSON directly. Vector tiles would:
+
+1. Use Tippecanoe to convert GeoJSON to .mbtiles
+2. Host on Mapbox Studio or self-host with tileserver-gl
+3. Replace geojson sources with vector tile sources
+
+Benefits:
+- Only load visible tiles (even faster)
+- Better zoom interpolation
+- Smaller transfer size
+
+Tradeoff: More complex build pipeline.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="f10">
+                <div class="question">Q10: How handle <span class="kw">browser memory limits</span>?</div>
+                <textarea>Several strategies:
+
+1. Lazy loading: Only visible departments
+2. LRU eviction: Max 3 depts, remove oldest
+3. Geometry simplification: Reduce vertex count
+4. Level-based loading: Never show all 642K parcels
+5. Monitor heap: If approaching limit, more aggressive unloading
+
+On mobile: More aggressive limits (max 2 depts), detect low-memory devices via navigator.deviceMemory.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+        </div>
+        
+        <!-- PERFORMANCE -->
+        <div id="perf" class="section searchable">
+            <h2>Performance - 8 Questions</h2>
+            
+            <div class="qa-block" data-id="p1">
+                <div class="question">Q1: How <span class="kw">optimize for multiple CPUs</span>?</div>
+                <textarea>Strategies:
+
+1. Joblib parallel:
+   Parallel(n_jobs=12)(delayed(process)(p) for p in parcels)
+   2 hours → 12 minutes
+
+2. ThreadPoolExecutor for I/O: Concurrent downloads
+
+3. Pandas vectorization: df['price'] = df['val']/df['surf']
+
+4. Batch ML predictions: One call for all features
+
+5. NumPy threading: OMP_NUM_THREADS for BLAS</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="p2">
+                <div class="question">Q2: Explain <span class="kw">10,000x spatial index speedup</span></div>
+                <textarea>1M transactions × 31K communes:
+
+Without index:
+- 1M × 31K = 31 billion polygon tests
+- ~0.001 sec each = ~360 days
+
+With GIST:
+- R-tree reduces to ~3 candidates/point
+- 1M × 3 = 3 million tests
+- ~50 minutes
+
+Speedup: 31B / 3M = 10,333x
+Complexity: O(n×m) → O(n×log(m))</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="p3">
+                <div class="question">Q3: How manage <span class="kw">memory with large datasets</span>?</div>
+                <textarea>Strategies:
+
+1. Chunk processing: 50K rows, one dept at a time
+2. Explicit cleanup: del df, gc.collect()
+3. Streaming downloads: iter_content(1MB)
+4. Column selection: Only load needed
+5. Type optimization: int32, category strings
+6. Lazy frontend loading: Only visible depts
+
+Peak memory <2GB even with 22GB cadastre.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="p4">
+                <div class="question">Q4: What <span class="kw">database optimizations</span>?</div>
+                <textarea>Indexing:
+- GIST on transaction geom
+- GIST on zone boundaries
+- B-tree on code, level
+
+Query: ST_Within with indexed geom, EXPLAIN ANALYZE
+
+Batch: 50K rows/batch, CREATE INDEX after bulk load
+
+Maintenance: VACUUM ANALYZE after bulk ops</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="p5">
+                <div class="question">Q5: How <span class="kw">optimize frontend rendering</span>?</div>
+                <textarea>Mapbox: WebGL, vector tiles, only render visible
+
+Data: Geometry simplification (0.0001°), split by dept, lazy load
+
+Layers: One geo level at a time, unload out of zoom, max 3 parcel depts
+
+Styling: GPU-evaluated expressions, avoid per-feature JS</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="p6">
+                <div class="question">Q6: <span class="kw">Overall pipeline runtime</span>?</div>
+                <textarea>On 12-core, 24GB RAM:
+
+Fresh: Download 35min + Clean 10min + Train 1min + Aggregate 20min + Export 5min = ~70 min
+
+Cached: ~35 min
+
+Bottleneck: Parcel cadastre matching
+
+Improvements: Parallelize depts (4x), persist intermediates</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="p7">
+                <div class="question">Q7: How would you use <span class="kw">ClickHouse</span>?</div>
+                <textarea>ClickHouse for analytics queries:
+
+1. Store historical transactions (columnar, fast aggregation)
+2. Real-time dashboards (price trends, volume)
+3. Ad-hoc analysis (filter by date, area, type)
+
+Keep PostGIS for spatial joins, ClickHouse for analytics.
+
+Would sync data: PostGIS → ClickHouse after ETL.
+
+Benefits: 10-100x faster aggregation queries.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="p8">
+                <div class="question">Q8: How <span class="kw">profile and identify bottlenecks</span>?</div>
+                <textarea>Tools:
+
+1. Python: cProfile, line_profiler, memory_profiler
+2. Database: EXPLAIN ANALYZE, pg_stat_statements
+3. Browser: Chrome DevTools Performance tab
+4. System: htop, docker stats
+
+Process:
+1. Profile end-to-end first
+2. Identify slowest stage
+3. Profile that stage in detail
+4. Optimize, measure, repeat</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+        </div>
+        
+        <!-- BEHAVIORAL -->
+        <div id="behavioral" class="section searchable">
+            <h2>Behavioral - 5 Questions</h2>
+            
+            <div class="qa-block" data-id="b1">
+                <div class="question">Q1: Tell me about a <span class="kw">challenging technical problem</span> you solved</div>
+                <textarea>The sparse data problem in this project.
+
+Challenge: 40% of communes have <10 transactions. Raw estimates were unreliable and noisy.
+
+Approach:
+1. Researched statistical approaches (empirical Bayes, hierarchical models)
+2. Tested multiple smoothing thresholds (20, 50, 100)
+3. Validated with cross-validation and domain experts
+
+Solution: Hierarchical smoothing with n/50 threshold. Improved estimate stability while preserving local signal where data was sufficient.
+
+Impact: Reliable estimates for all 674K zones instead of just high-volume areas.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="b2">
+                <div class="question">Q2: How do you <span class="kw">prioritize</span> when you have multiple tasks?</div>
+                <textarea>Framework: Impact × Urgency matrix
+
+High impact, urgent: Do first (production bugs, blocking issues)
+High impact, not urgent: Schedule dedicated time (architecture improvements)
+Low impact, urgent: Delegate or automate
+Low impact, not urgent: Deprioritize or eliminate
+
+For this project: Focused on core pipeline first (data quality, ML model), then visualization (user-facing), then optimization (nice-to-have).
+
+Communication: Keep stakeholders informed of tradeoffs.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="b3">
+                <div class="question">Q3: Describe a time you had to <span class="kw">learn something new quickly</span></div>
+                <textarea>Learning PostGIS for this project.
+
+Situation: Needed spatial operations but only had SQL experience.
+
+Action:
+1. Read PostGIS documentation and tutorials (2 days)
+2. Built small test cases (point-in-polygon, spatial joins)
+3. Applied to actual data, debugged issues
+4. Optimized with GIST indexes after understanding internals
+
+Result: Productive with PostGIS in one week. The 10,000x speedup from proper indexing was key learning.
+
+Takeaway: Start with fundamentals, apply immediately, optimize once working.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="b4">
+                <div class="question">Q4: How do you handle <span class="kw">feedback or criticism</span>?</div>
+                <textarea>View it as learning opportunity.
+
+Example: Code review feedback that my batch size choice wasn't justified.
+
+Response:
+1. Asked clarifying questions to understand the concern
+2. Acknowledged the valid point
+3. Ran benchmarks to validate (tested 10K, 50K, 100K)
+4. Updated code with comments explaining the reasoning
+5. Shared findings with the team
+
+Result: Better documented code, learned to justify decisions upfront.
+
+Key: Separate the feedback from ego. Focus on improving the work.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
+            </div>
+            
+            <div class="qa-block" data-id="b5">
+                <div class="question">Q5: Why are you interested in <span class="kw">RealAdvisor</span>?</div>
+                <textarea>Three reasons:
+
+1. Domain fit: Real estate data is where I want to specialize. The combination of geospatial, ML, and consumer impact is exactly what interests me.
+
+2. Technical stack: PostGIS, Mapbox, ClickHouse, Kubernetes - these are the tools I want to master. This project was practice for exactly this.
+
+3. Scale and impact: Helping millions of people make better property decisions. The data quality directly impacts financial decisions.
+
+I built this project specifically to demonstrate I can contribute from day one.</textarea>
+                <div class="btn-row"><button class="save-btn" onclick="saveAnswer(this)">Save</button><button class="reset-btn" onclick="resetAnswer(this)">Reset</button><span class="saved-indicator">✓ Saved</span></div>
             </div>
         </div>
         
         <!-- VOCABULARY -->
-        <div id="vocabulary" class="section searchable">
-            <h2>Technical Vocabulary</h2>
+        <div id="vocab" class="section searchable">
+            <h2>Vocabulary & Pronunciation</h2>
             
-            <h3>Spatial Terms</h3>
+            <h3>Spatial</h3>
             <table class="vocab-table">
                 <tr><td>PostGIS</td><td>post-JISS</td><td>PostgreSQL spatial extension</td></tr>
-                <tr><td>GIST</td><td>jist</td><td>Generalized Search Tree index</td></tr>
-                <tr><td>ST_Within</td><td>S-T within</td><td>Point-in-polygon test</td></tr>
-                <tr><td>Spatial join</td><td>SPAY-shul</td><td>Join based on geography</td></tr>
-                <tr><td>Choropleth</td><td>KOR-oh-pleth</td><td>Map colored by data values</td></tr>
-                <tr><td>GeoJSON</td><td>jee-oh-JAY-son</td><td>Geographic JSON format</td></tr>
-                <tr><td>Bounding box</td><td>BOWN-ding</td><td>Rectangle around shape</td></tr>
-                <tr><td>Centroid</td><td>SEN-troyd</td><td>Center point of polygon</td></tr>
+                <tr><td>GIST</td><td>jist</td><td>Generalized Search Tree</td></tr>
+                <tr><td>R-tree</td><td>ARE-tree</td><td>Spatial index structure</td></tr>
+                <tr><td>ST_Within</td><td>S-T within</td><td>Point-in-polygon</td></tr>
+                <tr><td>Choropleth</td><td>KOR-oh-pleth</td><td>Map colored by data</td></tr>
+                <tr><td>GeoJSON</td><td>jee-oh-JAY-son</td><td>Geographic JSON</td></tr>
             </table>
             
-            <h3>ML Terms</h3>
+            <h3>ML</h3>
             <table class="vocab-table">
-                <tr><td>LightGBM</td><td>light-GBM</td><td>Gradient boosting framework</td></tr>
-                <tr><td>Hierarchical smoothing</td><td>high-er-ARK-ik-al</td><td>Borrow from parent levels</td></tr>
-                <tr><td>Cross-validation</td><td>cross-val</td><td>K-fold model evaluation</td></tr>
-                <tr><td>R² score</td><td>R-squared</td><td>Variance explained (0-1)</td></tr>
-                <tr><td>Feature importance</td><td>-</td><td>Which inputs matter most</td></tr>
-                <tr><td>Regularization</td><td>reg-yoo-lar-ih-ZAY-shun</td><td>Prevent overfitting</td></tr>
+                <tr><td>LightGBM</td><td>light-GBM</td><td>Gradient boosting</td></tr>
+                <tr><td>Hierarchical</td><td>high-er-ARK-ik-al</td><td>Multi-level structure</td></tr>
+                <tr><td>R²</td><td>R-squared</td><td>Variance explained</td></tr>
+                <tr><td>Quantile</td><td>KWAN-tile</td><td>Distribution percentile</td></tr>
             </table>
             
-            <h3>Data Engineering Terms</h3>
+            <h3>French</h3>
             <table class="vocab-table">
-                <tr><td>ETL</td><td>E-T-L</td><td>Extract, Transform, Load</td></tr>
-                <tr><td>Batch processing</td><td>-</td><td>Process in chunks</td></tr>
-                <tr><td>Lazy loading</td><td>LAY-zee</td><td>Load on demand</td></tr>
-                <tr><td>Connection pooling</td><td>-</td><td>Reuse database connections</td></tr>
-                <tr><td>Vectorization</td><td>vek-tor-ih-ZAY-shun</td><td>Operate on arrays, not loops</td></tr>
-            </table>
-            
-            <h3>French Geography Terms</h3>
-            <table class="vocab-table">
-                <tr><td>DVF</td><td>day-vay-eff</td><td>Demandes de Valeurs Foncières</td></tr>
-                <tr><td>Commune</td><td>koh-MOON</td><td>Municipality (like city)</td></tr>
-                <tr><td>Département</td><td>day-part-mohn</td><td>Department (like county)</td></tr>
-                <tr><td>Région</td><td>ray-zhee-OHN</td><td>Region (like state)</td></tr>
+                <tr><td>DVF</td><td>day-vay-eff</td><td>Transaction dataset</td></tr>
+                <tr><td>Commune</td><td>koh-MOON</td><td>Municipality</td></tr>
+                <tr><td>Département</td><td>day-part-mohn</td><td>Department</td></tr>
                 <tr><td>Cadastre</td><td>ka-DASS-tr</td><td>Land registry</td></tr>
-                <tr><td>Parcelle</td><td>par-SELL</td><td>Land parcel</td></tr>
                 <tr><td>Île-de-France</td><td>eel-duh-FRAHNSS</td><td>Paris region</td></tr>
             </table>
+            
+            <div class="tip">
+                <strong>Useful phrases:</strong><br>
+                • "Let me break that down..."<br>
+                • "The key insight is..."<br>
+                • "The tradeoff here is..."<br>
+                • "In practice, that means..."
+            </div>
         </div>
     </div>
     
-    <a href="#" class="back-to-top" id="backToTop">↑ Top</a>
+    <a href="#" class="back-to-top" id="backToTop">↑</a>
     
     <script>
-        // Tab switching
+        // Tab navigation
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-                
                 tab.classList.add('active');
                 document.getElementById(tab.dataset.section).classList.add('active');
             });
         });
         
-        // Search functionality
+        // Save answer
+        function saveAnswer(btn) {
+            const block = btn.closest('.qa-block');
+            const textarea = block.querySelector('textarea');
+            const indicator = block.querySelector('.saved-indicator');
+            localStorage.setItem('qa_' + block.dataset.id, textarea.value);
+            indicator.style.display = 'inline';
+            setTimeout(() => indicator.style.display = 'none', 2000);
+        }
+        
+        // Reset answer
+        function resetAnswer(btn) {
+            const block = btn.closest('.qa-block');
+            const textarea = block.querySelector('textarea');
+            const id = block.dataset.id;
+            localStorage.removeItem('qa_' + id);
+            // Get original from a data attribute or reload
+            location.reload();
+        }
+        
+        // Load saved answers
+        document.querySelectorAll('.qa-block').forEach(block => {
+            const saved = localStorage.getItem('qa_' + block.dataset.id);
+            if (saved) {
+                block.querySelector('textarea').value = saved;
+            }
+        });
+        
+        // Search
         const searchInput = document.getElementById('searchInput');
         const searchBtn = document.getElementById('searchBtn');
+        const clearBtn = document.getElementById('clearBtn');
         const searchResults = document.getElementById('searchResults');
         
         function performSearch() {
             const query = searchInput.value.toLowerCase().trim();
-            if (!query) {
-                searchResults.style.display = 'none';
-                return;
-            }
-            
-            // Remove previous highlights
-            document.querySelectorAll('mark').forEach(mark => {
-                mark.outerHTML = mark.innerHTML;
-            });
-            
-            const sections = document.querySelectorAll('.searchable');
+            if (!query) { searchResults.style.display = 'none'; return; }
+            document.querySelectorAll('mark').forEach(m => m.outerHTML = m.innerHTML);
             let matches = [];
-            
-            sections.forEach(section => {
+            document.querySelectorAll('.searchable').forEach(section => {
                 const text = section.textContent.toLowerCase();
                 if (text.includes(query)) {
-                    const sectionId = section.id;
-                    const sectionName = document.querySelector(`[data-section="${sectionId}"]`).textContent;
-                    
-                    const count = (text.match(new RegExp(query, 'gi')) || []).length;
-                    matches.push({ id: sectionId, name: sectionName, count });
-                    
-                    // Highlight matches (carefully to avoid breaking HTML)
-                    const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
-                    const textNodes = [];
-                    while(walker.nextNode()) textNodes.push(walker.currentNode);
-                    
-                    textNodes.forEach(node => {
-                        if (node.nodeValue.toLowerCase().includes(query)) {
-                            const regex = new RegExp(`(${query})`, 'gi');
-                            const span = document.createElement('span');
-                            span.innerHTML = node.nodeValue.replace(regex, '<mark>$1</mark>');
-                            node.parentNode.replaceChild(span, node);
+                    const id = section.id;
+                    const tab = document.querySelector(`[data-section="${id}"]`);
+                    const name = tab ? tab.textContent.trim() : id;
+                    matches.push({ id, name: name.replace(/\d+/g,'').trim(), count: (text.match(new RegExp(query,'gi'))||[]).length });
+                    section.querySelectorAll('.question, textarea').forEach(el => {
+                        const prop = el.tagName === 'TEXTAREA' ? 'value' : 'innerHTML';
+                        if (el[prop].toLowerCase().includes(query)) {
+                            el[prop] = el[prop].replace(new RegExp(`(${query})`,'gi'), '<mark>$1</mark>');
                         }
                     });
                 }
             });
-            
-            if (matches.length > 0) {
-                searchResults.innerHTML = `Found "${query}" in: ` + 
-                    matches.map(m => `<a href="#" onclick="showSection('${m.id}')">${m.name} (${m.count})</a>`).join(', ');
-                searchResults.style.display = 'block';
-            } else {
-                searchResults.innerHTML = `No results for "${query}"`;
-                searchResults.style.display = 'block';
-            }
+            searchResults.innerHTML = matches.length ? `Found in: ${matches.map(m=>`<a onclick="showSection('${m.id}')">${m.name}(${m.count})</a>`).join(' ')}` : `No results`;
+            searchResults.style.display = 'block';
         }
         
-        function showSection(sectionId) {
+        function showSection(id) {
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-            
-            document.querySelector(`[data-section="${sectionId}"]`).classList.add('active');
-            document.getElementById(sectionId).classList.add('active');
+            const tab = document.querySelector(`[data-section="${id}"]`);
+            if (tab) tab.classList.add('active');
+            document.getElementById(id).classList.add('active');
         }
         
         searchBtn.addEventListener('click', performSearch);
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') performSearch();
-        });
+        clearBtn.addEventListener('click', () => { searchInput.value=''; searchResults.style.display='none'; document.querySelectorAll('mark').forEach(m=>m.outerHTML=m.innerHTML); });
+        searchInput.addEventListener('keypress', e => { if(e.key==='Enter') performSearch(); });
         
         // Back to top
         const backToTop = document.getElementById('backToTop');
-        window.addEventListener('scroll', () => {
-            backToTop.style.display = window.scrollY > 300 ? 'block' : 'none';
-        });
-        
-        backToTop.addEventListener('click', (e) => {
-            e.preventDefault();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
+        window.addEventListener('scroll', () => backToTop.style.display = window.scrollY > 300 ? 'block' : 'none');
+        backToTop.addEventListener('click', e => { e.preventDefault(); window.scrollTo({top:0,behavior:'smooth'}); });
     </script>
 </body>
 </html>
